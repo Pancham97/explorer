@@ -1,0 +1,38 @@
+version: "3.8"
+name: "explorer-app"
+
+services:
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile.backend
+        ports:
+            - "8080:8080"
+        # Health check ensures container is truly ready
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+        networks:
+            - app-network
+
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile.frontend
+        ports:
+            - "3000:3000"
+        environment:
+            - API_URL=http://backend:8080/query
+        depends_on:
+            backend:
+                condition: service_healthy
+        networks:
+            - app-network
+
+networks:
+    app-network:
+        driver: bridge
+        # Improved isolation
+        internal: false

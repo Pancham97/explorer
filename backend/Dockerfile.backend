@@ -1,0 +1,40 @@
+# Build stage - Using Go 1.22 with Alpine as base for smaller image size
+FROM golang:1.23-alpine AS builder
+
+# Set working directory for all subsequent commands
+WORKDIR /app
+
+# Install git only during build stage - required for private dependencies
+# Can be removed if all dependencies are public
+RUN apk add --no-cache git
+
+# Copy only dependency files first to leverage Docker cache
+# If dependencies haven't changed, Docker will use cached layers
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Now copy the source code
+# This layer changes only when source code changes
+COPY . .
+
+# Build the binary
+# CGO_ENABLED=0: produces statically linked binary
+# GOOS=linux: ensures Linux compatibility
+RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+
+# Final stage - Using bare Alpine for minimal image size
+FROM alpine:latest
+
+WORKDIR /app
+
+# Copy only the compiled binary from builder stage
+# This creates a very small final image
+COPY --from=builder /app/main .
+
+# Document the port that will be exposed
+EXPOSE 8080
+
+# Command to run when container starts
+CMD ["go", "run", "server.go"]
