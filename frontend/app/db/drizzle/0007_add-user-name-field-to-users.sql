@@ -1,0 +1,1 @@
+ALTER TABLE `users_table` ADD `user_name` varchar(255);

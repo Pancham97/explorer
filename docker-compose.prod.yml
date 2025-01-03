@@ -1,5 +1,6 @@
+# docker-compose.prod.yml
 version: "3.8"
-name: "explorer-app"
+name: "explorer-app-prod"
 
 services:
     backend:
@@ -8,9 +9,10 @@ services:
             dockerfile: Dockerfile.backend
         ports:
             - "8080:8080"
-        # Health check ensures container is truly ready
+        environment:
+            - NODE_ENV=production
         healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+            test: ["CMD", "curl", "-f", "http://localhost:8080"]
             interval: 30s
             timeout: 10s
             retries: 3
@@ -21,9 +23,11 @@ services:
         build:
             context: ./frontend
             dockerfile: Dockerfile.frontend
+            target: production
         ports:
             - "3000:3000"
         environment:
+            - NODE_ENV=production
             - API_URL=http://backend:8080/query
         depends_on:
             backend:
@@ -34,5 +38,3 @@ services:
 networks:
     app-network:
         driver: bridge
-        # Improved isolation
-        internal: false

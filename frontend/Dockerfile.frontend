@@ -1,39 +1,31 @@
-# Build stage - Using Node 20 Alpine for smaller image size
-FROM node:20-alpine AS builder
+# syntax=docker/dockerfile:1
 
-# Set working directory
+# Base stage
+FROM node:20-alpine AS base
 WORKDIR /app
-
-# Copy package files first to leverage Docker cache
-# If dependencies haven't changed, Docker will use cached layers
 COPY package*.json ./
-
-# Install dependencies
-# 'ci' is preferred over 'install' in automated environments
-# It's faster and more reliable than npm install
 RUN npm ci
 
-# Copy application source code
+# Builder stage for production
+FROM base AS builder
+ENV NODE_ENV=production
 COPY . .
-
-# Build the application
-# This creates optimized production build
 RUN npm run build
 
-# Final stage - Using Node Alpine for runtime
-FROM node:20-alpine
-
+# Production stage
+FROM base AS production
 WORKDIR /app
+ENV NODE_ENV=production
 
-# Copy only the necessary files from builder stage
-# We don't need source code, only built assets and runtime dependencies
+# Copy production artifacts
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 
-# Document the port that will be exposed
-EXPOSE 3000
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+	CMD curl -f http://localhost:3000/health || exit 1
 
-# Command to run the production server
+# Start production server
 CMD ["npm", "run", "start"]
