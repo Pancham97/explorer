@@ -83,8 +83,13 @@ async function storeUserInDatabaseIfNotExists(user: User) {
 
 export const googleStrategy = new OAuth2Strategy(
     {
-        cookie: "oauth2", // Optional, can also be an object with more options
-
+        cookie: {
+            name: "oauth2",
+            secure: process.env.NODE_ENV === "production" ? true : undefined,
+            maxAge: 60 * 60 * 24 * 7, // 1 week
+            sameSite: "Lax",
+            httpOnly: true,
+        },
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
 
@@ -135,7 +140,13 @@ export const googleStrategy = new OAuth2Strategy(
 
 export const githubStrategy = new OAuth2Strategy(
     {
-        cookie: "oauth2", // Optional, can also be an object with more options
+        cookie: {
+            name: "oauth2",
+            secure: process.env.NODE_ENV === "production" ? true : undefined,
+            maxAge: 60 * 60 * 24 * 7, // 1 week
+            sameSite: "Lax",
+            httpOnly: true,
+        },
 
         clientId: process.env.GITHUB_CLIENT_ID!,
         clientSecret: process.env.GITHUB_CLIENT_SECRET!,
