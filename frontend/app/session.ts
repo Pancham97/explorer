@@ -1,6 +1,9 @@
 // frontend/app/session.ts
-
 import { createCookieSessionStorage, redirect } from "@remix-run/node"; // or cloudflare/deno
+import { createThemeSessionResolver } from "remix-themes";
+
+// You can default to 'development' if process.env.NODE_ENV is not set
+const isProduction = process.env.NODE_ENV === "production";
 
 export type User = {
     id: string;
@@ -39,7 +42,7 @@ export const sessionStorage = createCookieSessionStorage<
         path: "/",
         sameSite: "lax",
         secrets: ["cookie-secret-by-p@ncham"],
-        secure: process.env.NODE_ENV === "production",
+        secure: isProduction,
     },
 });
 
@@ -57,3 +60,19 @@ export async function requireUserSession(request: Request) {
 
     return session;
 }
+
+export const themeSessionResolver = createThemeSessionResolver(
+    createCookieSessionStorage({
+        cookie: {
+            name: "__theme",
+            path: "/",
+            httpOnly: true,
+            sameSite: "lax",
+            secrets: ["s3cr3t"],
+            // Set domain and secure only if in production
+            ...(isProduction
+                ? { domain: "explorerapp.com", secure: true }
+                : {}),
+        },
+    })
+);

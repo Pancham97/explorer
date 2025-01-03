@@ -3,7 +3,7 @@ import type {
     LinksFunction,
     LoaderFunctionArgs,
 } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { data, json } from "@remix-run/node";
 import {
     Links,
     Meta,
@@ -12,14 +12,23 @@ import {
     Scripts,
     ScrollRestoration,
     useLoaderData,
+    useRouteLoaderData,
 } from "@remix-run/react";
 
 import { authenticator, googleStrategy, logout } from "~/auth/oauth2";
 import Nav from "~/components/nav";
-import "./tailwind.css";
-import { sessionStorage } from "~/session";
+import styles from "./tailwind.css?url";
+import { sessionStorage, themeSessionResolver, User } from "~/session";
+import {
+    PreventFlashOnWrongTheme,
+    Theme,
+    ThemeProvider,
+    useTheme,
+} from "remix-themes";
+import clsx from "clsx";
 
 export const links: LinksFunction = () => [
+    { rel: "stylesheet", href: styles },
     { rel: "preconnect", href: "https://fonts.googleapis.com" },
     {
         rel: "preconnect",
@@ -36,17 +45,30 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const session = await sessionStorage.getSession(
         request.headers.get("cookie")
     );
+
+    const { getTheme } = await themeSessionResolver(request);
+
     const user = session.get("user");
-    return { user };
+    return { user, theme: getTheme() };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
     return await logout(request);
 }
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function InnerLayout({
+    children,
+    ssrTheme,
+    user,
+}: {
+    children: React.ReactNode;
+    ssrTheme: boolean;
+    user: User | undefined;
+}) {
+    const [theme] = useTheme();
+
     return (
-        <html lang="en">
+        <html lang="en" className={clsx(theme)} data-theme={theme}>
             <head>
                 <meta charSet="utf-8" />
                 <meta
@@ -54,9 +76,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     content="width=device-width, initial-scale=1"
                 />
                 <Meta />
+
+                <PreventFlashOnWrongTheme ssrTheme={ssrTheme} />
                 <Links />
             </head>
             <body>
+                <Nav user={user} />
                 {children}
                 <ScrollRestoration />
                 <Scripts />
@@ -65,12 +90,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
 }
 
-export default function App() {
-    const { user } = useLoaderData<typeof loader>();
+export function Layout({ children }: { children: React.ReactNode }) {
+    const data = useRouteLoaderData<typeof loader>("root");
+
     return (
-        <>
-            <Nav user={user} />
-            <Outlet />
-        </>
+        <ThemeProvider
+            specifiedTheme={data?.theme as Theme}
+            themeAction="/action/set-theme"
+        >
+            <InnerLayout ssrTheme={Boolean(data?.theme)} user={data?.user}>
+                {children}
+            </InnerLayout>
+        </ThemeProvider>
     );
+}
+
+export default function App() {
+    return <Outlet />;
 }
