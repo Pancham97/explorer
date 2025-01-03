@@ -2,30 +2,27 @@ import type {
     ActionFunctionArgs,
     LinksFunction,
     LoaderFunctionArgs,
-} from "@remix-run/node";
-import { data, json } from "@remix-run/node";
+} from "@vercel/remix";
 import {
     Links,
     Meta,
     Outlet,
-    redirect,
     Scripts,
     ScrollRestoration,
-    useLoaderData,
     useRouteLoaderData,
 } from "@remix-run/react";
-
-import { authenticator, googleStrategy, logout } from "~/auth/oauth2";
-import Nav from "~/components/nav";
-import styles from "./tailwind.css?url";
-import { sessionStorage, themeSessionResolver, User } from "~/session";
+import { Analytics } from "@vercel/analytics/react";
+import clsx from "clsx";
 import {
     PreventFlashOnWrongTheme,
     Theme,
     ThemeProvider,
     useTheme,
 } from "remix-themes";
-import clsx from "clsx";
+import { logout } from "~/auth/oauth2";
+import Nav from "~/components/nav";
+import { sessionStorage, themeSessionResolver, User } from "~/session";
+import styles from "./tailwind.css?url";
 
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: styles },
@@ -85,6 +82,7 @@ export function InnerLayout({
                 {children}
                 <ScrollRestoration />
                 <Scripts />
+                <Analytics />
             </body>
         </html>
     );
