@@ -1,4 +1,5 @@
 import { Form, Link, useLocation } from "@remix-run/react";
+import { ModeToggle } from "./ui/mode-toggle";
 import { User } from "~/session";
 
 export default function Nav({ user }: { user: User | undefined }) {
@@ -9,7 +10,7 @@ export default function Nav({ user }: { user: User | undefined }) {
     }
 
     return (
-        <div>
+        <div className="flex justify-between items-center p-4">
             <Link to="/">Home</Link>
             Welcome, {user?.firstName}
             <div>
@@ -20,6 +21,7 @@ export default function Nav({ user }: { user: User | undefined }) {
                     </Form>
                 )}
             </div>
+            <ModeToggle />
         </div>
     );
 }
