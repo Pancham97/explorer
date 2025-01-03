@@ -1,0 +1,26 @@
+# docker-compose.dev.yml
+version: "3.8"
+name: "explorer-app-dev"
+
+services:
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile.backend
+        ports:
+            - "8080:8080"
+        volumes:
+            - ./backend:/app
+        environment:
+            - NODE_ENV=development
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+        networks:
+            - app-network
+
+networks:
+    app-network:
+        driver: bridge

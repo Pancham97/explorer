@@ -1,0 +1,90 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 1,
+      "version": "1",
+      "when": 1735634998180,
+      "tag": "0001_fluffy_iron_fist",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "1",
+      "when": 1735635021688,
+      "tag": "0002_remove-password-from-users-table",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "1",
+      "when": 1735635258198,
+      "tag": "0003_rename-avatar-url",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "1",
+      "when": 1735640642148,
+      "tag": "0004_new-table-provider",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "1",
+      "when": 1735640676019,
+      "tag": "0005_remove-provider-from-user-table",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "1",
+      "when": 1735668363390,
+      "tag": "0006_new-item-table",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "1",
+      "when": 1735892938291,
+      "tag": "0007_add-user-name-field-to-users",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "1",
+      "when": 1735907828738,
+      "tag": "0008_add-new-column-thumbnail-url-item",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "1",
+      "when": 1735907893054,
+      "tag": "0009_rename-column-url-to-delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "1",
+      "when": 1735908280959,
+      "tag": "0010_point-thumbnail-column-to-old-column",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "1",
+      "when": 1735908362930,
+      "tag": "0011_rename-new-thumbnail-url-to-old",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "1",
+      "when": 1735908435350,
+      "tag": "0012_drop-old-thumbnail-url-column",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+# docker-compose.prod.yml
+version: "3.8"
+name: "explorer-app-prod"
+
+services:
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile.backend
+        ports:
+            - "8080:8080"
+        environment:
+            - NODE_ENV=production
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+        networks:
+            - app-network
+
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile.frontend
+            target: production
+        ports:
+            - "3000:3000"
+        environment:
+            - NODE_ENV=production
+            - API_URL=http://backend:8080/query
+        depends_on:
+            backend:
+                condition: service_healthy
+        networks:
+            - app-network
+
+networks:
+    app-network:
+        driver: bridge

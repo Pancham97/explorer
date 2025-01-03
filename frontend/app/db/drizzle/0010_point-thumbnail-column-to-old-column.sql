@@ -1,0 +1,1 @@
+UPDATE item SET new_thumbnail_url=thumbnail_url_to_delete;
