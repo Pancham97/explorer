@@ -13,7 +13,7 @@ import { providersTable } from "~/db/schema/provider";
 
 const BASE_URL =
     process.env.NODE_ENV === "production"
-        ? "https://explorer-five-liard.vercel.app"
+        ? process.env.BASE_URL
         : "http://localhost:5173";
 
 async function getUser(email: string, loginProvider: string) {
