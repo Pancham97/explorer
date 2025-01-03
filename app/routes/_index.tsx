@@ -2,7 +2,7 @@ import {
     ActionFunctionArgs,
     LoaderFunctionArgs,
     type MetaFunction,
-} from "@remix-run/node";
+} from "@vercel/remix";
 import { data, useFetcher, useLoaderData } from "@remix-run/react";
 import { desc, eq } from "drizzle-orm";
 import React from "react";
@@ -123,7 +123,7 @@ export default function Index() {
                     intent="custom-input"
                 />
                 {items.map((item) => (
-                    <ContextMenu>
+                    <ContextMenu key={item.id}>
                         <ContextMenuTrigger>
                             <ContentCard key={item.id} content={item} />
                         </ContextMenuTrigger>

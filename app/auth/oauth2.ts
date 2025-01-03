@@ -11,6 +11,11 @@ import { timestamp } from "drizzle-orm/singlestore-core";
 import { and, eq } from "drizzle-orm";
 import { providersTable } from "~/db/schema/provider";
 
+const BASE_URL =
+    process.env.NODE_ENV === "production"
+        ? "https://explorer-five-liard.vercel.app"
+        : "http://localhost:5173";
+
 async function getUser(email: string, loginProvider: string) {
     return await db
         .select({
@@ -85,8 +90,7 @@ export const googleStrategy = new OAuth2Strategy(
 
         authorizationEndpoint: "https://accounts.google.com/o/oauth2/auth",
         tokenEndpoint: "https://oauth2.googleapis.com/token",
-        redirectURI: "http://localhost:5173/auth/google/callback",
-
+        redirectURI: `${BASE_URL}/auth/google/callback`,
         tokenRevocationEndpoint: "https://accounts.google.com/o/oauth2/revoke", // optional
 
         scopes: ["openid", "email", "profile"], // optional
@@ -138,7 +142,7 @@ export const githubStrategy = new OAuth2Strategy(
 
         authorizationEndpoint: "https://github.com/login/oauth/authorize",
         tokenEndpoint: "https://github.com/login/oauth/access_token",
-        redirectURI: "http://localhost:5173/auth/github/callback",
+        redirectURI: `${BASE_URL}/auth/github/callback`,
 
         tokenRevocationEndpoint: "https://github.com/logout", // optional
 
