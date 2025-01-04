@@ -3,6 +3,26 @@ import React from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 
+function useGetCurrentOS() {
+    const [isMac, setIsMac] = React.useState(false);
+    const [isWin, setIsWin] = React.useState(false);
+
+    React.useEffect(() => {
+        const isMac = navigator.userAgent.includes("Mac");
+        const isWin = navigator.userAgent.includes("Win");
+
+        setIsMac(isMac);
+        setIsWin(isWin);
+    }, []);
+
+    return { isMac, isWin };
+}
+
+// command key icon
+const commandKeyIcon = "⌘";
+const enterKeyIcon = "↵";
+const ctrlKeyIcon = "Ctrl";
+
 export const EnhancedInputCard = ({
     formError,
     name = "content",
@@ -14,14 +34,21 @@ export const EnhancedInputCard = ({
     name: string;
     intent: string;
 }) => {
-    const fetcher = useFetcher();
+    const fetcher = useFetcher({ key: "input-card" });
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
     const [hasContent, setHasContent] = React.useState(false);
-
+    const { isMac, isWin } = useGetCurrentOS();
     const isSubmitting = fetcher.state === "submitting";
 
+    const getShortcutKey = () => {
+        if (isMac) {
+            return `${commandKeyIcon} + ${enterKeyIcon}`;
+        }
+        return `${ctrlKeyIcon} + ${enterKeyIcon}`;
+    };
+
     return (
-        <Card className="transition-all duration-200 ease-in-out hover:shadow-md">
+        <Card className="transition-all duration-200 ease-in-out hover:shadow-md break-inside-avoid mb-6">
             <CardContent className="p-0">
                 <fetcher.Form
                     method="post"
@@ -31,22 +58,33 @@ export const EnhancedInputCard = ({
                     <textarea
                         ref={textAreaRef}
                         name={name}
-                        placeholder="Capture your thought here..."
+                        placeholder="What's on your mind?"
                         aria-label="Content input"
                         aria-invalid={Boolean(formError)}
                         aria-errormessage={
                             formError ? "content-error" : undefined
                         }
-                        className={`w-full p-4 bg-transparent border-none resize-none focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                        className={`w-full p-4 bg-transparent border-none resize-none focus:outline-none min-h-[200px] h-auto ${
                             isSubmitting ? "opacity-50 cursor-not-allowed" : ""
                         }`}
-                        style={{ minHeight: "100px" }}
                         disabled={isSubmitting}
                         onChange={(e) => {
                             setHasContent(e.target.value.length > 0);
                         }}
                         onPaste={(e) => {
+                            // This is done because the paste event triggers a
+                            // submit on the parent form and thereby does not
+                            // allow the user to paste content
                             e.stopPropagation();
+                        }}
+                        onKeyDown={(e) => {
+                            if (
+                                (isMac && e.metaKey && e.key === "Enter") ||
+                                (isWin && e.ctrlKey && e.key === "Enter")
+                            ) {
+                                e.preventDefault();
+                                fetcher.submit(formRef.current);
+                            }
                         }}
                     />
 
@@ -64,11 +102,13 @@ export const EnhancedInputCard = ({
                     <Button
                         type="submit"
                         disabled={isSubmitting}
-                        className={`absolute bottom-0 right-0 w-full ${
+                        className={`bottom-0 right-0 w-full rounded-none ${
                             isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                        } ${hasContent ? "visible" : "hidden"}`}
+                        } ${hasContent ? "visible" : "invisible"}`}
                     >
-                        {isSubmitting ? "Saving..." : "Save"}
+                        {isSubmitting
+                            ? "Saving..."
+                            : `Save (${getShortcutKey()})`}
                     </Button>
                 </fetcher.Form>
             </CardContent>

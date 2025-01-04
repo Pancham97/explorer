@@ -18,18 +18,37 @@ export async function getOGData(url: string): Promise<OgObject> {
                 headers: {
                     // Some sites block default User-Agent
                     "User-Agent":
-                        "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.124 Safari/537.36",
                 },
             },
-            timeout: 1000,
+            timeout: 4000,
         };
 
         const { result } = await ogs(options);
+
         return result;
     } catch (error) {
-        console.error("Error fetching OG data:", error);
-        return { error: "Error fetching OG data" };
+        throw error;
     }
+}
+
+export function isURLRelative(url: string) {
+    return url.startsWith("/");
+}
+
+export function fetchDomainFromURL(url: string) {
+    const parsedUrl = new URL(url);
+    return `${parsedUrl.protocol}//${parsedUrl.hostname}`;
+}
+
+export function prepareFaviconUrl(
+    favicon: string | undefined,
+    requestUrl: string
+) {
+    if (!favicon) return "";
+    return isURLRelative(favicon)
+        ? `${fetchDomainFromURL(requestUrl)}${favicon}`
+        : favicon;
 }
 
 type TextItem = {
@@ -43,74 +62,104 @@ export async function storeItem(item: File | TextItem, user: User) {
     if (item instanceof File) {
     } else {
         if (isURL(item.content || "")) {
-            const openGraphData = await getOGData(item.content ?? "");
-            const {
-                ogTitle,
-                twitterTitle,
-                ogDescription,
-                twitterDescription,
-                ogUrl,
-                ogImage,
-                twitterImage,
-                favicon,
-                customMetaTags,
-                requestUrl,
-            } = openGraphData;
-
-            await db.insert(itemTable).values({
-                id: ulid(),
-                url: item.content || requestUrl,
-                title: ogTitle || twitterTitle || item.title || "",
-                type: "url",
-                tags: {},
-                isFavorite: 0,
-                metadata: {
-                    ogTitle,
-                    twitterTitle,
-                    ogDescription,
-                    twitterDescription,
-                    ogUrl,
-                    ogImage,
-                    twitterImage,
-                    favicon,
+            try {
+                const openGraphData = await getOGData(item.content ?? "");
+                // console.log("openGraphData", openGraphData);
+                const {
+                    author,
                     customMetaTags,
-                },
-                userId: user.id,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                lastAccessedAt: new Date(),
-                description:
-                    ogDescription ||
-                    twitterDescription ||
-                    item.description ||
-                    "",
-                faviconUrl: favicon,
-                thumbnailUrl: ogImage?.[0]?.url || twitterImage?.[0]?.url || "",
-            });
+                    favicon,
+                    ogDescription,
+                    ogImage,
+                    ogSiteName,
+                    ogTitle,
+                    ogType,
+                    ogUrl,
+                    requestUrl,
+                    twitterDescription,
+                    twitterImage,
+                    twitterSite,
+                    twitterSiteId,
+                    twitterTitle,
+                } = openGraphData;
+
+                const itemID = ulid();
+
+                return await db
+                    .insert(itemTable)
+                    .values({
+                        id: itemID,
+                        url: item.content || requestUrl,
+                        title: ogTitle || twitterTitle || item.title || "",
+                        type: "url",
+                        tags: {},
+                        isFavorite: 0,
+                        metadata: {
+                            author,
+                            customMetaTags,
+                            favicon,
+                            ogDescription,
+                            ogImage,
+                            ogSiteName,
+                            ogTitle,
+                            ogType,
+                            ogUrl,
+                            requestUrl,
+                            twitterDescription,
+                            twitterImage,
+                            twitterSite,
+                            twitterSiteId,
+                            twitterTitle,
+                        },
+                        userId: user.id,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        lastAccessedAt: new Date(),
+                        description:
+                            ogDescription ||
+                            twitterDescription ||
+                            item.description ||
+                            "",
+                        faviconUrl: prepareFaviconUrl(
+                            favicon,
+                            requestUrl || ogUrl || item.content || ""
+                        ),
+                        thumbnailUrl:
+                            ogImage?.[0]?.url || twitterImage?.[0]?.url || "",
+                    })
+                    .$dynamic();
+            } catch (error) {
+                throw error;
+            }
         } else {
-            await db.insert(itemTable).values({
-                id: ulid(),
-                url: null,
-                title: item.title || "",
-                content: item.content || "",
-                type: "text",
-                tags: {},
-                isFavorite: 0,
-                metadata: {},
-                userId: user.id,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                lastAccessedAt: new Date(),
-                description: item.description || "",
-                faviconUrl: "",
-                thumbnailUrl: "",
-            });
+            const itemID = ulid();
+            return await db
+                .insert(itemTable)
+                .values({
+                    id: itemID,
+                    url: null,
+                    title: item.title || "",
+                    content: item.content || "",
+                    type: "text",
+                    tags: {},
+                    isFavorite: 0,
+                    metadata: {},
+                    userId: user.id,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    lastAccessedAt: new Date(),
+                    description: item.description || "",
+                    faviconUrl: "",
+                    thumbnailUrl: "",
+                })
+                .$dynamic();
         }
     }
 }
 
 export async function deleteItem(itemId: string, user: User) {
-    await db
+    return await db
         .delete(itemTable)
-        .where(and(eq(itemTable.id, itemId), eq(itemTable.userId, user.id)));
+        .where(and(eq(itemTable.id, itemId), eq(itemTable.userId, user.id)))
+        .$dynamic();
 }

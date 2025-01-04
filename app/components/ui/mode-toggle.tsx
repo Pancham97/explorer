@@ -5,11 +5,12 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 
 export function ModeToggle() {
-    const [, setTheme] = useTheme();
+    const [_, setTheme] = useTheme();
 
     return (
         <DropdownMenu>
@@ -26,6 +27,10 @@ export function ModeToggle() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setTheme(Theme.DARK)}>
                     Dark
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setTheme(null)}>
+                    System
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
