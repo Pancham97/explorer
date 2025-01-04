@@ -71,7 +71,7 @@ export const themeSessionResolver = createThemeSessionResolver(
             secrets: ["s3cr3t"],
             // Set domain and secure only if in production
             ...(isProduction
-                ? { domain: "explorerapp.com", secure: true }
+                ? { domain: "sunchay.com", secure: true }
                 : {}),
         },
     })

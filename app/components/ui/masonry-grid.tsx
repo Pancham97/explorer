@@ -1,63 +1,73 @@
+import { AnimatePresence } from "framer-motion";
 import React from "react";
 
 type MasonryGridProps = {
     children: React.ReactNode[];
-    columnsByBreakpoint?: {
-        default: number;
-        lg: number;
-        md: number;
-        sm: number;
-    };
 };
 
-export const MasonryGrid: React.FC<MasonryGridProps> = ({
-    children,
-    columnsByBreakpoint = {
-        default: 4,
-        lg: 3,
-        md: 2,
-        sm: 1,
-    },
-}) => {
-    const [columnCount, setColumnCount] = React.useState(
+const columnsByBreakpoint = {
+    default: 4,
+    sm: 1,
+    md: 2,
+    lg: 3,
+    "2xl": 5,
+    "1600px": 4,
+    "1920px": 6,
+    "2560px": 8,
+    "3200px": 11,
+};
+
+const breakpoints = [
+    { width: 3200, columns: columnsByBreakpoint["3200px"] },
+    { width: 2560, columns: columnsByBreakpoint["2560px"] },
+    { width: 1920, columns: columnsByBreakpoint["1920px"] },
+    { width: 1600, columns: columnsByBreakpoint["1600px"] },
+    { width: 1280, columns: columnsByBreakpoint.default },
+    { width: 1024, columns: columnsByBreakpoint.lg },
+    { width: 768, columns: columnsByBreakpoint.md },
+];
+
+export const MasonryGrid: React.FC<MasonryGridProps> = ({ children }) => {
+    const [numberOfColumns, setNumberOfColumns] = React.useState(
         columnsByBreakpoint.default
     );
 
     // Responsive column adjustment
-    React.useEffect(() => {
-        const updateColumns = () => {
-            const width = window.innerWidth;
-            if (width < 640) setColumnCount(columnsByBreakpoint.sm);
-            else if (width < 768) setColumnCount(columnsByBreakpoint.md);
-            else if (width < 1024) setColumnCount(columnsByBreakpoint.lg);
-            else setColumnCount(columnsByBreakpoint.default);
-        };
+    const updateColumns = React.useCallback(() => {
+        const width = window.innerWidth;
+        const breakpoint = breakpoints.find((bp) => width >= bp.width);
+        setNumberOfColumns(breakpoint?.columns ?? columnsByBreakpoint.sm);
+    }, []);
 
+    React.useEffect(() => {
         updateColumns();
         window.addEventListener("resize", updateColumns);
         return () => window.removeEventListener("resize", updateColumns);
-    }, [columnsByBreakpoint]);
+    }, [updateColumns]);
 
-    // Map column count to Tailwind classes
-    const getColumnsClass = (count: number) => {
-        const columnMap: Record<number, string> = {
-            1: "columns-1",
-            2: "columns-2",
-            3: "columns-3",
-            4: "columns-4",
-            5: "columns-5",
-            6: "columns-6",
-        };
-        return columnMap[count] || "columns-4"; // fallback to 4 columns
-    };
+    const grid = React.useMemo(() => {
+        const grid: React.ReactNode[][] = Array.from(
+            { length: numberOfColumns },
+            () => []
+        );
+        React.Children.forEach(children, (child, index) => {
+            const columnIndex = Math.floor(index % numberOfColumns);
+            grid[columnIndex].push(child);
+        });
+        return grid;
+    }, [children, numberOfColumns]);
 
     return (
-        <div className={`gap-4 ${getColumnsClass(columnCount)}`}>
-            {React.Children.map(children, (child, index) => (
-                <div key={index} className="mb-4 break-inside-avoid">
-                    {child}
-                </div>
-            ))}
+        <div className="gap-6 columns-1 md:columns-2 lg:columns-3 xl:columns-4 min-[1920px]:columns-6 min-[2560px]:columns-8 min-[3200px]:columns-10">
+            <AnimatePresence mode="popLayout">
+                {grid.map((columns, columnIndex) => (
+                    <div className="break-inside-avoid" key={columnIndex}>
+                        {columns.map((child, childIndex) => (
+                            <div key={childIndex}>{child}</div>
+                        ))}
+                    </div>
+                ))}
+            </AnimatePresence>
         </div>
     );
 };
