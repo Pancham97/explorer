@@ -29,6 +29,8 @@ import "puppeteer-extra-plugin-stealth/evasions/user-agent-override";
 import "puppeteer-extra-plugin-stealth/evasions/webgl.vendor";
 import "puppeteer-extra-plugin-stealth/evasions/window.outerdimensions";
 import "puppeteer-extra-plugin-stealth/evasions/defaultArgs";
+import "puppeteer-extra-plugin-user-preferences";
+import "puppeteer-extra-plugin-user-data-dir";
 
 // This is required to avoid detection by some websites
 puppeteer.use(StealthPlugin());
