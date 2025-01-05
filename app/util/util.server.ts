@@ -215,23 +215,26 @@ async function fetchWithPuppeteer(url: string) {
 export async function getOGData(
     url: string
 ): Promise<{ openGraphData: OgObject; product: Product }> {
-    const { content, product } = await fetchWithPuppeteer(url);
+    // const { content, product } = await fetchWithPuppeteer(url);
     const options: OpenGraphScraperOptions = {
-        // url,
-        html: content,
-        // fetchOptions: {
-        //     headers: {
-        //         // Some sites block default User-Agent
-        //         "User-Agent":
-        //             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.124 Safari/537.36",
-        //     },
-        // },
+        url,
+        // html: content,
+        fetchOptions: {
+            headers: {
+                // Some sites block default User-Agent
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.124 Safari/537.36",
+            },
+        },
         timeout: 4000,
     };
 
     const { result } = await ogs(options);
 
-    return { openGraphData: result, product };
+    return {
+        openGraphData: result,
+        product: { description: null, image: null, name: null },
+    };
 }
 
 export function isURLRelative(url: string) {
