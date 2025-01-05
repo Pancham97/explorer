@@ -197,7 +197,7 @@ function isURL(url: string) {
 }
 
 async function getBrowser() {
-    if (browser) return browser;
+    if (browser && browser.connected) return browser;
 
     chromium.setGraphicsMode = false;
 
@@ -230,11 +230,13 @@ async function fetchWithPuppeteer(url: string) {
         });
         const content = await page.content();
 
-        await page.screenshot({
-            path: "pancham-screenshot.png",
-            type: "webp",
-            quality: 80,
-        });
+        if (process.env.NODE_ENV === "development") {
+            await page.screenshot({
+                path: "pancham-screenshot.png",
+                type: "webp",
+                quality: 80,
+            });
+        }
         // fs.writeFileSync("content.html", content);
 
         const product = await parseProduct(page);
@@ -243,9 +245,6 @@ async function fetchWithPuppeteer(url: string) {
         return { content, product };
     } catch (error) {
         console.error("error fetching with puppeteer", error);
-        if (process.env.NODE_ENV === "development") {
-            await browser.close();
-        }
         throw error;
     } finally {
         if (process.env.NODE_ENV === "development") {
