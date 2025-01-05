@@ -43,9 +43,13 @@ puppeteer.use(StealthPlugin());
 
 let browser: Browser;
 
+// @sparticuz/chromium has default chromeArgs to improve serverless performance, but you can add others as you deem appropriate
 const chromeArgs = [
-    // @sparticuz/chromium has default chromeArgs to improve serverless performance, but you can add others as you deem appropriate
-    "--font-render-hinting=none", // Improves font-rendering quality and spacing
+    // Improves font-rendering quality and spacing
+    "--font-render-hinting=none",
+    // Disable sandbox for serverless. TODO: need to fix this by either moving
+    // chromium to Docker or self-hosting on AWS Lambda instead of Vercel
+    "--no-sandbox",
 ];
 
 type Product = {
