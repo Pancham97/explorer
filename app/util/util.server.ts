@@ -37,9 +37,9 @@ import "puppeteer-extra-plugin-user-preferences";
 // This is required to avoid detection by some websites
 puppeteer.use(StealthPlugin());
 
-chromium.setHeadlessMode = true;
-const remoteExecutablePath =
-    "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar";
+// chromium.setHeadlessMode = true;
+// const remoteExecutablePath =
+//     "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar";
 
 let browser: Browser;
 
@@ -206,14 +206,13 @@ async function getBrowser() {
     // https://github.com/Sparticuz/chromium/issues/186
     if (process.env.NODE_ENV === "development") {
         browser = await puppeteer.launch({
-            args: ["--no-sandbox", "--disable-setuid-sandbox"],
             headless: true,
             channel: "chrome",
         });
     } else {
         browser = await puppeteer.launch({
             args: chromeArgs,
-            executablePath: await chromium.executablePath(remoteExecutablePath),
+            executablePath: await chromium.executablePath(),
             headless: true,
         });
     }
