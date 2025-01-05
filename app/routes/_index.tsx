@@ -264,7 +264,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 };
             }
         } catch (error) {
-            console.error("failed to save item from paste", error);
+            console.log("failed to save item from paste", error);
             return {
                 success: false,
                 message: "Item could not be saved",
@@ -309,7 +309,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 };
             }
         } catch (error) {
-            console.error("failed to save item from custom input", error);
+            console.log("failed to save item from custom input", error);
             return {
                 success: false,
                 message: "Item could not be saved",
@@ -341,7 +341,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 };
             }
         } catch (error) {
-            console.error("failed to delete item", error);
+            console.log("failed to delete item", error);
             return {
                 success: false,
                 message: "Item could not be deleted",
