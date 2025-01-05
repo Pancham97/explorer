@@ -1,16 +1,9 @@
-import { Link } from "@remix-run/react";
+import { Link, useFetcher } from "@remix-run/react";
 import React from "react";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "~/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { item as itemTable } from "~/db/schema/item";
-import opengraphFallback from "/opengraph-fallback.jpg";
 
-const FALLBACK_THUMBNAIL = opengraphFallback;
+const FALLBACK_THUMBNAIL = "/opengraph-fallback.jpg";
 
 function CardVariant({
     content,
@@ -26,7 +19,7 @@ function CardVariant({
                     <CardContent>
                         <img
                             src={content.thumbnailUrl || FALLBACK_THUMBNAIL}
-                            alt={content.title}
+                            alt={content.title || ""}
                             className="w-full h-auto object-cover"
                             onLoad={() => setIsLoaded(true)}
                         />
@@ -51,13 +44,13 @@ function CardVariant({
             );
         case "url":
             return (
-                <Link to={content.url || ""} target="_blank">
+                <Link to={content.url || ""} target="_blank" rel="noreferrer">
                     <Card className="group hover:border-ring transition-[border] duration-300">
                         <CardHeader className="p-4">
                             {content.faviconUrl && (
                                 <img
                                     src={content.faviconUrl || ""}
-                                    alt={content.title}
+                                    alt={content.title || ""}
                                     className="w-6 h-6 mb-8 grayscale group-hover:grayscale-0"
                                 />
                             )}
@@ -68,7 +61,7 @@ function CardVariant({
                         <CardContent className="p-0">
                             <img
                                 src={content.thumbnailUrl || FALLBACK_THUMBNAIL}
-                                alt={content.title}
+                                alt={content.title || ""}
                                 className="w-full h-auto object-cover"
                                 onLoad={() => setIsLoaded(true)}
                             />
@@ -86,10 +79,10 @@ export const ContentCard = ({
 }: {
     content: typeof itemTable.$inferSelect;
 }) => {
-    const [_, setIsLoaded] = React.useState(!content.thumbnailUrl);
+    const [, setIsLoaded] = React.useState(!content.thumbnailUrl);
 
     return (
-        <div className="break-inside-avoid mb-6">
+        <div className={`break-inside-avoid mb-6`}>
             <CardVariant content={content} setIsLoaded={setIsLoaded} />
         </div>
     );

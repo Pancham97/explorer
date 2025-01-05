@@ -34,7 +34,17 @@ export const EnhancedInputCard = ({
     name: string;
     intent: string;
 }) => {
-    const fetcher = useFetcher({ key: "input-card" });
+    const fetcher = useFetcher<{
+        success: boolean;
+        message: string;
+        content: string;
+        title: string;
+    }>({ key: "input-card" });
+    const pasteFetcher = useFetcher<{
+        success: boolean;
+        message: string;
+        content: string;
+    }>({ key: "paste-fetcher" });
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
     const [hasContent, setHasContent] = React.useState(false);
     const { isMac, isWin } = useGetCurrentOS();
@@ -46,6 +56,36 @@ export const EnhancedInputCard = ({
         }
         return `${ctrlKeyIcon} + ${enterKeyIcon}`;
     };
+
+    React.useEffect(() => {
+        if (fetcher.state === "submitting") {
+            formRef.current?.reset();
+            setHasContent(false);
+            textAreaRef.current?.focus();
+        }
+    }, [fetcher.state, formRef, textAreaRef]);
+
+    React.useEffect(() => {
+        if (!pasteFetcher.data?.success && pasteFetcher.data?.content) {
+            formRef.current?.reset();
+            textAreaRef.current?.focus();
+            if (textAreaRef.current) {
+                textAreaRef.current.value = pasteFetcher.data?.content || "";
+                setHasContent(true);
+            }
+        }
+    }, [pasteFetcher.data, formRef, textAreaRef]);
+
+    React.useEffect(() => {
+        if (!fetcher.data?.success && fetcher.data?.content) {
+            formRef.current?.reset();
+            textAreaRef.current?.focus();
+            if (textAreaRef.current) {
+                textAreaRef.current.value = fetcher.data?.content || "";
+                setHasContent(true);
+            }
+        }
+    }, [fetcher.data, formRef, textAreaRef]);
 
     return (
         <Card className="transition-all duration-200 ease-in-out hover:shadow-md break-inside-avoid mb-6">
