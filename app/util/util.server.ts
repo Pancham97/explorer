@@ -262,6 +262,7 @@ async function fetchWithPuppeteer(url: string) {
     try {
         browser = await getBrowser();
 
+        console.log("fetching with puppeteer", url, browser);
         const page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 3840 });
         await page.goto(url, {
