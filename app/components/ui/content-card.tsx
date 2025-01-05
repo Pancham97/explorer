@@ -1,6 +1,13 @@
-import { Link, useFetcher } from "@remix-run/react";
+import { Link } from "@remix-run/react";
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+    ContextMenuSeparator,
+} from "~/components/ui/context-menu";
 import { item as itemTable } from "~/db/schema/item";
 
 const FALLBACK_THUMBNAIL = "/opengraph-fallback.jpg";
@@ -76,14 +83,56 @@ function CardVariant({
 
 export const ContentCard = ({
     content,
+    onDelete,
 }: {
     content: typeof itemTable.$inferSelect;
+    onDelete: (id: string) => void;
 }) => {
     const [, setIsLoaded] = React.useState(!content.thumbnailUrl);
 
+    let copyMenuItem;
+    if (content.type === "url" && content.url && content.url.length > 0) {
+        copyMenuItem = (
+            <ContextMenuItem
+                onClick={() => navigator.clipboard.writeText(content.url || "")}
+            >
+                Copy URL
+            </ContextMenuItem>
+        );
+    } else if (
+        content.type === "text" &&
+        content.content &&
+        content.content.length > 0
+    ) {
+        copyMenuItem = (
+            <ContextMenuItem
+                onClick={() =>
+                    navigator.clipboard.writeText(content.content || "")
+                }
+            >
+                Copy Text
+            </ContextMenuItem>
+        );
+    }
+
     return (
-        <div className={`break-inside-avoid mb-6`}>
-            <CardVariant content={content} setIsLoaded={setIsLoaded} />
-        </div>
+        <ContextMenu key={content.id}>
+            <ContextMenuTrigger>
+                <div className={`break-inside-avoid mb-6`}>
+                    <CardVariant content={content} setIsLoaded={setIsLoaded} />
+                </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+                <ContextMenuItem>Edit</ContextMenuItem>
+                {copyMenuItem}
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                    onClick={() => onDelete(content.id)}
+                    className="text-red-500"
+                >
+                    Delete
+                </ContextMenuItem>
+            </ContextMenuContent>
+        </ContextMenu>
     );
 };

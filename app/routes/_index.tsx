@@ -7,12 +7,6 @@ import {
 import { desc, eq } from "drizzle-orm";
 import React from "react";
 import { ContentCard } from "~/components/ui/content-card";
-import {
-    ContextMenu,
-    ContextMenuContent,
-    ContextMenuItem,
-    ContextMenuTrigger,
-} from "~/components/ui/context-menu";
 import { InProgressCard } from "~/components/ui/in-progress-card";
 import { EnhancedInputCard } from "~/components/ui/input-card";
 import { MasonryGrid } from "~/components/ui/masonry-grid";
@@ -197,22 +191,13 @@ export default function Index() {
         <MasonryGrid>
             {staticItems.map((item) => item)}
             {itemsToShow.map((item) => (
-                <ContextMenu key={item.id}>
-                    <ContextMenuTrigger>
-                        <Motion key={item.id}>
-                            <ContentCard key={item.id} content={item} />
-                        </Motion>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                        <ContextMenuItem>Edit</ContextMenuItem>
-                        <ContextMenuItem
-                            onClick={() => handleDelete(item.id)}
-                            className="text-red-500"
-                        >
-                            Delete
-                        </ContextMenuItem>
-                    </ContextMenuContent>
-                </ContextMenu>
+                <Motion key={item.id}>
+                    <ContentCard
+                        key={item.id}
+                        content={item}
+                        onDelete={handleDelete}
+                    />
+                </Motion>
             ))}
         </MasonryGrid>
     );
