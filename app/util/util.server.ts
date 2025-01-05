@@ -1,21 +1,24 @@
 import { and, eq } from "drizzle-orm";
-import fs from "fs";
 import ogs from "open-graph-scraper";
 import { OgObject, OpenGraphScraperOptions } from "open-graph-scraper/types";
+// import type { Page, Browser } from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
+import type { Browser, Page } from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { ulid } from "ulid";
 import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { User } from "~/session";
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import type { Page } from "puppeteer";
 
 // All of these are imported because of a stupid thing with Vercel deployment
 // https://github.com/vercel/pkg/issues/910
+
 import "puppeteer-extra-plugin-stealth/evasions/chrome.app";
 import "puppeteer-extra-plugin-stealth/evasions/chrome.csi";
 import "puppeteer-extra-plugin-stealth/evasions/chrome.loadTimes";
 import "puppeteer-extra-plugin-stealth/evasions/chrome.runtime";
+import "puppeteer-extra-plugin-stealth/evasions/defaultArgs";
 import "puppeteer-extra-plugin-stealth/evasions/iframe.contentWindow";
 import "puppeteer-extra-plugin-stealth/evasions/media.codecs";
 import "puppeteer-extra-plugin-stealth/evasions/navigator.hardwareConcurrency";
@@ -28,12 +31,22 @@ import "puppeteer-extra-plugin-stealth/evasions/sourceurl";
 import "puppeteer-extra-plugin-stealth/evasions/user-agent-override";
 import "puppeteer-extra-plugin-stealth/evasions/webgl.vendor";
 import "puppeteer-extra-plugin-stealth/evasions/window.outerdimensions";
-import "puppeteer-extra-plugin-stealth/evasions/defaultArgs";
-import "puppeteer-extra-plugin-user-preferences";
 import "puppeteer-extra-plugin-user-data-dir";
+import "puppeteer-extra-plugin-user-preferences";
 
 // This is required to avoid detection by some websites
 puppeteer.use(StealthPlugin());
+
+chromium.setHeadlessMode = true;
+const remoteExecutablePath =
+    "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar";
+
+let browser: Browser;
+
+const chromeArgs = [
+    // @sparticuz/chromium has default chromeArgs to improve serverless performance, but you can add others as you deem appropriate
+    "--font-render-hinting=none", // Improves font-rendering quality and spacing
+];
 
 type Product = {
     name: string | undefined | null;
@@ -183,12 +196,36 @@ function isURL(url: string) {
     return url.startsWith("http://") || url.startsWith("https://");
 }
 
-async function fetchWithPuppeteer(url: string) {
-    const browser = await puppeteer.launch();
+async function getBrowser() {
+    if (browser) return browser;
 
+    chromium.setGraphicsMode = false;
+
+    // @sparticuz/chromium does not work on ARM, so we use a standard Chrome
+    // executable locally - see issue
+    // https://github.com/Sparticuz/chromium/issues/186
+    if (process.env.NODE_ENV === "development") {
+        browser = await puppeteer.launch({
+            args: ["--no-sandbox", "--disable-setuid-sandbox"],
+            headless: true,
+            channel: "chrome",
+        });
+    } else {
+        browser = await puppeteer.launch({
+            args: chromeArgs,
+            executablePath: await chromium.executablePath(remoteExecutablePath),
+            headless: true,
+        });
+    }
+    return browser;
+}
+
+async function fetchWithPuppeteer(url: string) {
     try {
+        browser = await getBrowser();
+
         const page = await browser.newPage();
-        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setViewport({ width: 1920, height: 3840 });
         await page.goto(url, {
             waitUntil: ["domcontentloaded"],
         });
@@ -196,7 +233,8 @@ async function fetchWithPuppeteer(url: string) {
 
         await page.screenshot({
             path: "pancham-screenshot.png",
-            fullPage: true,
+            type: "webp",
+            quality: 80,
         });
         // fs.writeFileSync("content.html", content);
 
@@ -205,20 +243,40 @@ async function fetchWithPuppeteer(url: string) {
         await browser.close();
         return { content, product };
     } catch (error) {
-        await browser.close();
+        console.error("error fetching with puppeteer", error);
+        if (process.env.NODE_ENV === "development") {
+            await browser.close();
+        }
         throw error;
     } finally {
-        await browser.close();
+        if (process.env.NODE_ENV === "development") {
+            await browser.close();
+        }
     }
 }
 
 export async function getOGData(
     url: string
 ): Promise<{ openGraphData: OgObject; product: Product }> {
-    // const { content, product } = await fetchWithPuppeteer(url);
+    const isPuppeteerEnabled = process.env.ENABLE_PUPPETEER === "true";
+
+    if (isPuppeteerEnabled) {
+        const { content, product } = await fetchWithPuppeteer(url);
+        const options: OpenGraphScraperOptions = {
+            html: content,
+            timeout: 4000,
+        };
+
+        const { result } = await ogs(options);
+
+        return {
+            openGraphData: result,
+            product,
+        };
+    }
+
     const options: OpenGraphScraperOptions = {
         url,
-        // html: content,
         fetchOptions: {
             headers: {
                 // Some sites block default User-Agent
