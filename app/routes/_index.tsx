@@ -1,18 +1,11 @@
+import { data, useFetcher, useLoaderData } from "@remix-run/react";
 import {
     ActionFunctionArgs,
     LoaderFunctionArgs,
     type MetaFunction,
 } from "@vercel/remix";
-import {
-    data,
-    useActionData,
-    useFetcher,
-    useLoaderData,
-} from "@remix-run/react";
 import { desc, eq } from "drizzle-orm";
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { AnimatePresence } from "framer-motion";
 import { ContentCard } from "~/components/ui/content-card";
 import {
     ContextMenu,
@@ -20,13 +13,15 @@ import {
     ContextMenuItem,
     ContextMenuTrigger,
 } from "~/components/ui/context-menu";
+import { InProgressCard } from "~/components/ui/in-progress-card";
 import { EnhancedInputCard } from "~/components/ui/input-card";
 import { MasonryGrid } from "~/components/ui/masonry-grid";
+import { Motion } from "~/components/ui/motion";
 import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
+import { useToast } from "~/hooks/use-toast";
 import { requireUserSession } from "~/session";
 import { deleteItem, storeItem } from "~/util/util.server";
-import { Motion } from "~/components/ui/motion";
 
 export const meta: MetaFunction = () => {
     return [
@@ -52,12 +47,41 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Index() {
-    const { items, user } = useLoaderData<typeof loader>();
-
     const pasteRef = React.useRef<HTMLFormElement>(null);
     const formRef = React.useRef<HTMLFormElement>(null);
 
-    const fetcher = useFetcher({ key: "paste-fetcher" });
+    const { toast } = useToast();
+
+    const defaultStaticItem = React.useMemo(
+        () => (
+            <EnhancedInputCard
+                formRef={formRef}
+                formError=""
+                name="content"
+                intent="custom-input"
+                key="input-card"
+            />
+        ),
+        []
+    );
+
+    const { items } = useLoaderData<typeof loader>();
+
+    const [staticItems, setStaticItems] = React.useState<React.ReactNode[]>([
+        defaultStaticItem,
+    ]);
+
+    const pasteFetcher = useFetcher<{
+        success: boolean;
+        message: string;
+        content: string;
+    }>({ key: "paste-fetcher" });
+    const customInputFetcher = useFetcher<{
+        success: boolean;
+        message: string;
+        content: string;
+        title: string;
+    }>({ key: "input-card" });
     const deleteFetcher = useFetcher<{
         itemId: string;
         success: boolean;
@@ -66,7 +90,63 @@ export default function Index() {
         key: "delete-fetcher",
     });
 
-    console.log("fetcher.data", fetcher.data);
+    React.useEffect(() => {
+        if (!deleteFetcher.data?.success && deleteFetcher.data?.itemId) {
+            toast({
+                title: deleteFetcher.data?.message,
+                description: "Please try again",
+                variant: "destructive",
+            });
+        }
+    }, [deleteFetcher.data, toast]);
+
+    React.useEffect(() => {
+        if (
+            !customInputFetcher.data?.success &&
+            customInputFetcher.data?.content
+        ) {
+            toast({
+                title: customInputFetcher.data?.message,
+                description: "Please try again",
+                variant: "destructive",
+            });
+        }
+    }, [customInputFetcher.data, toast]);
+
+    React.useEffect(() => {
+        if (!pasteFetcher.data?.success && pasteFetcher.data?.content) {
+            toast({
+                title: pasteFetcher.data?.message,
+                description:
+                    "We have pasted your content to the input card. Please edit it as needed and try again.",
+                variant: "destructive",
+            });
+        }
+    }, [pasteFetcher.data, toast]);
+
+    React.useEffect(() => {
+        if (pasteFetcher.state === "submitting") {
+            setStaticItems([
+                defaultStaticItem,
+                <InProgressCard key="in-progress" />,
+            ]);
+        }
+        if (pasteFetcher.state === "loading") {
+            setStaticItems([defaultStaticItem]);
+        }
+    }, [defaultStaticItem, pasteFetcher.data, pasteFetcher.state]);
+
+    React.useEffect(() => {
+        if (customInputFetcher.state === "submitting") {
+            setStaticItems([
+                defaultStaticItem,
+                <InProgressCard key="in-progress" />,
+            ]);
+        }
+        if (customInputFetcher.state === "loading") {
+            setStaticItems([defaultStaticItem]);
+        }
+    }, [customInputFetcher.state, defaultStaticItem]);
 
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
         event.preventDefault();
@@ -81,7 +161,7 @@ export default function Index() {
             const file = copiedFiles[0];
             const formData = new FormData(pasteRef.current!);
             formData.set("pastedContent", file);
-            fetcher.submit(formData, {
+            pasteFetcher.submit(formData, {
                 method: "post",
                 encType: "multipart/form-data",
             });
@@ -91,7 +171,7 @@ export default function Index() {
 
             const formData = new FormData(pasteRef.current!);
             formData.set("pastedContent", pastedContent);
-            fetcher.submit(formData, {
+            pasteFetcher.submit(formData, {
                 method: "post",
             });
         }
@@ -107,11 +187,6 @@ export default function Index() {
                 method: "post",
             }
         );
-        console.log(
-            "deleteFetcher.data",
-            deleteFetcher.data,
-            deleteFetcher.state
-        );
     };
 
     const itemsToShow = items.filter(
@@ -120,12 +195,7 @@ export default function Index() {
 
     const list = (
         <MasonryGrid>
-            <EnhancedInputCard
-                formRef={formRef}
-                formError=""
-                name="content"
-                intent="custom-input"
-            />
+            {staticItems.map((item) => item)}
             {itemsToShow.map((item) => (
                 <ContextMenu key={item.id}>
                     <ContextMenuTrigger>
@@ -150,10 +220,10 @@ export default function Index() {
     return (
         <div className="p-8 pt-6">
             <div onPaste={handlePaste}>
-                <fetcher.Form ref={pasteRef}>
+                <pasteFetcher.Form ref={pasteRef}>
                     <input type="hidden" name="pastedContent" />
                     <input type="hidden" name="intent" value="paste" />
-                </fetcher.Form>
+                </pasteFetcher.Form>
                 <div className="min-h-screen">{list}</div>
             </div>
         </div>
@@ -171,57 +241,58 @@ export async function action({ request }: ActionFunctionArgs) {
     const intent = formData.get("intent");
 
     console.log("intent", intent);
-    switch (intent) {
-        case "paste":
-            switch (request.headers.get("Content-Type")) {
-                case "multipart/form-data":
-                    const file = formData.get("pastedContent") as File;
 
-                    console.log("file", file.name, file.type, file.size);
+    if (intent === "paste") {
+        if (request.headers.get("Content-Type") === "multipart/form-data") {
+            const file = formData.get("pastedContent") as File;
+
+            console.log("file", file.name, file.type, file.size);
+            return {
+                success: false,
+                message: "File could not be saved",
+            };
+        }
+
+        const content = formData.get("pastedContent");
+        try {
+            if (content) {
+                const result = await storeItem(
+                    {
+                        content: content.toString(),
+                    },
+                    user
+                );
+
+                console.log("result", result);
+                if (result && result[0].affectedRows > 0) {
                     return {
-                        success: false,
-                        message: "File could not be saved",
+                        success: true,
+                        message: "Item saved successfully!",
+                        data: result,
                     };
+                }
 
-                default:
-                    const content = formData.get("pastedContent");
-
-                    if (content) {
-                        const result = await storeItem(
-                            {
-                                content: content.toString(),
-                            },
-                            user
-                        );
-
-                        console.log("result", result);
-                        if (result) {
-                            return {
-                                success: result[0].affectedRows > 0,
-                                message:
-                                    result[0].affectedRows > 0
-                                        ? "Item saved successfully!"
-                                        : "Item could not be saved",
-                                data: result,
-                            };
-                        }
-
-                        return {
-                            success: false,
-                            message: "Item could not be saved",
-                        };
-                    }
-                    return {
-                        success: false,
-                        message: "Item could not be saved",
-                    };
+                return {
+                    success: false,
+                    message: "Item could not be saved",
+                    content,
+                };
             }
+        } catch (error) {
+            return {
+                success: false,
+                message: "Item could not be saved",
+                content,
+            };
+        }
+    }
 
-        case "custom-input":
-            console.log("calling custom input save");
-            const title = formData.get("title");
-            const content = formData.get("content");
+    if (intent === "custom-input") {
+        console.log("calling custom input save");
+        const title = formData.get("title");
+        const content = formData.get("content");
 
+        try {
             if (title || content) {
                 const result = await storeItem(
                     {
@@ -230,7 +301,7 @@ export async function action({ request }: ActionFunctionArgs) {
                     },
                     user
                 );
-                console.log("result", result);
+                // console.log("result", result);
                 if (result) {
                     return {
                         success: result[0].affectedRows > 0,
@@ -251,38 +322,43 @@ export async function action({ request }: ActionFunctionArgs) {
                     title,
                 };
             }
-
+        } catch (error) {
             return {
                 success: false,
                 message: "Item could not be saved",
                 content,
                 title,
             };
+        }
+    }
 
-        case "delete":
-            const itemId = formData.get("itemId");
+    if (intent === "delete") {
+        const itemId = formData.get("itemId");
+        try {
             if (itemId) {
                 const result = await deleteItem(itemId.toString(), user);
-                console.log("delete result", result);
+                if (result && result[0].affectedRows > 0) {
+                    return {
+                        success: true,
+                        message: "Item deleted successfully!",
+                        data: result,
+                        itemId,
+                    };
+                }
+
                 return {
-                    success: result[0].affectedRows > 0,
-                    message:
-                        result[0].affectedRows > 0
-                            ? "Item deleted successfully!"
-                            : "Item could not be deleted",
+                    success: false,
+                    message: "Item could not be deleted",
                     data: result,
                     itemId,
                 };
             }
+        } catch (error) {
             return {
                 success: false,
                 message: "Item could not be deleted",
+                itemId,
             };
-
-        default:
-            return {
-                success: false,
-                message: "Item could not be saved",
-            };
+        }
     }
 }

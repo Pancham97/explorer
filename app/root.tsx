@@ -23,6 +23,7 @@ import { logout } from "~/auth/oauth2";
 import Nav from "~/components/nav";
 import { sessionStorage, themeSessionResolver, User } from "~/session";
 import styles from "./tailwind.css?url";
+import { Toaster } from "~/components/ui/toaster";
 
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: styles },
@@ -80,6 +81,7 @@ export function InnerLayout({
             <body>
                 <Nav user={user} />
                 {children}
+                <Toaster />
                 <ScrollRestoration />
                 <Scripts />
                 <Analytics />
