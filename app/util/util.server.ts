@@ -10,6 +10,8 @@ import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import type { Page } from "puppeteer";
 
+import "puppeteer-extra-plugin-stealth/evasions/chrome.app";
+
 // This is required to avoid detection by some websites
 puppeteer.use(StealthPlugin());
 
