@@ -88,7 +88,7 @@ export const EnhancedInputCard = ({
     }, [fetcher.data, formRef, textAreaRef]);
 
     return (
-        <Card className="transition-all duration-200 ease-in-out hover:shadow-md break-inside-avoid mb-6">
+        <Card className="transition-all duration-200 ease-in-out hover:shadow-md break-inside-avoid mb-4 md:mb-6">
             <CardContent className="p-0">
                 <fetcher.Form
                     method="post"

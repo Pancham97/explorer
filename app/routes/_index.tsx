@@ -203,7 +203,7 @@ export default function Index() {
     );
 
     return (
-        <div className="p-8 pt-6">
+        <div className="p-4 md:p-8 pt-2 md:pt-6">
             <div onPaste={handlePaste}>
                 <pasteFetcher.Form ref={pasteRef}>
                     <input type="hidden" name="pastedContent" />
