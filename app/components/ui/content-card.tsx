@@ -118,7 +118,7 @@ export const ContentCard = ({
     return (
         <ContextMenu key={content.id}>
             <ContextMenuTrigger>
-                <div className={`break-inside-avoid mb-6`}>
+                <div className={`break-inside-avoid mb-4 md:mb-6`}>
                     <CardVariant content={content} setIsLoaded={setIsLoaded} />
                 </div>
             </ContextMenuTrigger>

@@ -77,7 +77,7 @@ export default function Nav({ user }: { user: UserType | undefined }) {
             </div> */}
 
             <div className="flex items-center gap-2">
-                <h1 className="text-xl font-serif">
+                <h1 className="text-xl font-serif invisible md:visible">
                     {getGreetingBasedOnTime()}, {user?.firstName}
                 </h1>
                 <UserActions user={user} />
