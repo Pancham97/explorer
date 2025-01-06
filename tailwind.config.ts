@@ -5,6 +5,11 @@ export default {
     content: ["./app/**/{**,.client,.server}/**/*.{js,jsx,ts,tsx}"],
     theme: {
         extend: {
+            textShadow: {
+                sm: "0 1px 2px var(--tw-shadow-color)",
+                DEFAULT: "0 2px 4px var(--tw-shadow-color)",
+                lg: "0 8px 16px var(--tw-shadow-color)",
+            },
             fontFamily: {
                 sans: [
                     "Inter",
@@ -67,7 +72,30 @@ export default {
             transitionDuration: {
                 "5000": "5000ms",
             },
+            keyframes: {
+                "soft-pulse": {
+                    "0%, 100%": { opacity: "1" },
+                    "50%": { opacity: "0.7" },
+                },
+            },
+            animation: {
+                "soft-pulse":
+                    "soft-pulse 5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+            },
         },
     },
-    plugins: [require("tailwindcss-animate")],
+    plugins: [
+        require("tailwindcss-animate"),
+        require("@tailwindcss/typography"),
+        function ({ matchUtilities, theme }: any) {
+            matchUtilities(
+                {
+                    "text-shadow": (value: any) => ({
+                        textShadow: value,
+                    }),
+                },
+                { values: theme("textShadow") }
+            );
+        },
+    ],
 } satisfies Config;
