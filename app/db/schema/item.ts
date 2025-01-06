@@ -1,5 +1,4 @@
 import {
-    boolean,
     json,
     primaryKey,
     singlestoreEnum,

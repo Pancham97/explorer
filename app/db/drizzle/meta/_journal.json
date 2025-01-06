@@ -85,6 +85,13 @@
       "when": 1735908435350,
       "tag": "0012_drop-old-thumbnail-url-column",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "1",
+      "when": 1736193692913,
+      "tag": "0013_new-table-screenshot",
+      "breakpoints": true
     }
   ]
 }
