@@ -33,8 +33,8 @@ export async function getOGData(url: string): Promise<GetOGDataResponse> {
 
     if (isPuppeteerEnabled) {
         const response = await fetch(
-            // "https://n3hdumbu6docpxby3e2wv5cuoi0lsykn.lambda-url.ap-south-1.on.aws",
-            "https://7qv4apcznftiudu35cgrsxcuk40zmnfx.lambda-url.ap-south-1.on.aws",
+            "https://n3hdumbu6docpxby3e2wv5cuoi0lsykn.lambda-url.ap-south-1.on.aws",
+            // "https://7qv4apcznftiudu35cgrsxcuk40zmnfx.lambda-url.ap-south-1.on.aws",
             {
                 method: "POST",
                 body: JSON.stringify({
