@@ -3,6 +3,7 @@ import ogs from "open-graph-scraper";
 import { OgObject, OpenGraphScraperOptions } from "open-graph-scraper/types";
 import { ulid } from "ulid";
 import { db } from "~/db/db.server";
+import { screenshot } from "~/db/drizzle/schema";
 import { item as itemTable } from "~/db/schema/item";
 import { User } from "~/session";
 
@@ -12,28 +13,38 @@ type Product = {
     description: string | undefined | null;
 };
 
+type GetOGDataResponse = {
+    openGraphData: OgObject;
+    product: Product;
+    // screenshotUrl: string;
+};
+
 function isURL(url: string) {
     return url.startsWith("http://") || url.startsWith("https://");
 }
 
-export async function getOGData(
-    url: string
-): Promise<{ openGraphData: OgObject; product: Product }> {
+export async function getOGData(url: string): Promise<GetOGDataResponse> {
     const isPuppeteerEnabled = process.env.ENABLE_PUPPETEER === "true";
+
+    const screenshotUrlInDB = await db
+        .select({ screenshotUrl: screenshot.screenshotUrl })
+        .from(screenshot)
+        .where(eq(screenshot.url, url));
 
     if (isPuppeteerEnabled) {
         const response = await fetch(
             "https://n3hdumbu6docpxby3e2wv5cuoi0lsykn.lambda-url.ap-south-1.on.aws",
+            // "https://7qv4apcznftiudu35cgrsxcuk40zmnfx.lambda-url.ap-south-1.on.aws",
             {
                 method: "POST",
                 body: JSON.stringify({
                     url,
-                    isLocal: process.env.NODE_ENV === "development",
+                    fetchScreenshot: !screenshotUrlInDB.length,
                 }),
             }
         );
 
-        const { content, product } = await response.json();
+        const { content, product, screenshotUrl } = await response.json();
 
         const options: OpenGraphScraperOptions = {
             html: content,
@@ -41,6 +52,18 @@ export async function getOGData(
         };
 
         const { result } = await ogs(options);
+
+        if (
+            !screenshotUrlInDB.length &&
+            screenshotUrl &&
+            screenshotUrl.length > 0
+        ) {
+            await db.insert(screenshot).values({
+                id: ulid(),
+                url,
+                screenshotUrl,
+            });
+        }
 
         return {
             openGraphData: result,
@@ -65,6 +88,7 @@ export async function getOGData(
     return {
         openGraphData: result,
         product: { description: null, image: null, name: null },
+        // screenshotUrl: "",
     };
 }
 
@@ -165,10 +189,10 @@ export async function storeItem(item: File | TextItem, user: User) {
                     updatedAt: new Date(),
                     lastAccessedAt: new Date(),
                     description:
-                        product.description ||
-                        ogDescription ||
-                        twitterDescription ||
-                        item.description ||
+                        product.description?.slice(0, 360) ||
+                        ogDescription?.slice(0, 360) ||
+                        twitterDescription?.slice(0, 360) ||
+                        item.description?.slice(0, 360) ||
                         "",
                     faviconUrl: prepareUrl(
                         favicon,

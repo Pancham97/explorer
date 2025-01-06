@@ -1,17 +1,14 @@
 import {
-    singlestoreTable,
-    singlestoreSchema,
-    AnySingleStoreColumn,
-    primaryKey,
-    varchar,
-    text,
-    singlestoreEnum,
-    tinyint,
-    timestamp,
     date,
     json,
+    primaryKey,
+    singlestoreEnum,
+    singlestoreTable,
+    text,
+    timestamp,
+    tinyint,
+    varchar,
 } from "drizzle-orm/singlestore-core";
-import { sql } from "drizzle-orm";
 
 export const item = singlestoreTable(
     "item",
@@ -45,6 +42,16 @@ export const provider = singlestoreTable(
         updatedAt: timestamp("updated_at", { mode: "string" }).notNull(),
     },
     (table) => [primaryKey({ columns: [table.id], name: "provider_id" })]
+);
+
+export const screenshot = singlestoreTable(
+    "screenshot",
+    {
+        id: varchar({ length: 255 }).notNull(),
+        url: varchar({ length: 4096 }).notNull(),
+        screenshotUrl: varchar({ length: 4096 }).notNull(),
+    },
+    (table) => [primaryKey({ columns: [table.id], name: "screenshot_id" })]
 );
 
 export const usersTable = singlestoreTable(
