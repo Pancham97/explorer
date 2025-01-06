@@ -24,6 +24,7 @@
         "@remix-run/react": "^2.15.2",
         "@remix-run/serve": "^2.15.2",
         "@sparticuz/chromium": "^131.0.1",
+        "@tailwindcss/typography": "^0.5.15",
         "@vercel/analytics": "^1.4.1",
         "@vercel/remix": "^2.15.2",
         "class-variance-authority": "^0.7.1",
@@ -37,12 +38,6 @@
         "motion": "^11.15.0",
         "mysql2": "^3.12.0",
         "open-graph-scraper": "^6.8.3",
-        "puppeteer": "^23.11.1",
-        "puppeteer-core": "^23.11.1",
-        "puppeteer-extra": "^3.3.6",
-        "puppeteer-extra-plugin-stealth": "^2.11.2",
-        "puppeteer-extra-plugin-user-data-dir": "^2.4.1",
-        "puppeteer-extra-plugin-user-preferences": "^2.4.1",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-hook-form": "^7.54.2",
@@ -78,6 +73,9 @@
         "typescript": "^5.1.6",
         "vite": "^5.1.0",
         "vite-tsconfig-paths": "^4.2.1"
+    },
+    "overrides": {
+        "valibot": "^0.41.0"
     },
     "engines": {
         "node": ">=22.0.0"

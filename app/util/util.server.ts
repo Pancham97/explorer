@@ -1,91 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import ogs from "open-graph-scraper";
 import { OgObject, OpenGraphScraperOptions } from "open-graph-scraper/types";
-// import type { Page, Browser } from "puppeteer-core";
-import chromium from "@sparticuz/chromium";
-import type { Browser, Page } from "puppeteer";
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { ulid } from "ulid";
 import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { User } from "~/session";
-
-// All of these are imported because of a stupid thing with Vercel deployment
-// https://github.com/vercel/pkg/issues/910
-
-import "puppeteer-extra-plugin-stealth/evasions/chrome.app";
-import "puppeteer-extra-plugin-stealth/evasions/chrome.csi";
-import "puppeteer-extra-plugin-stealth/evasions/chrome.loadTimes";
-import "puppeteer-extra-plugin-stealth/evasions/chrome.runtime";
-import "puppeteer-extra-plugin-stealth/evasions/defaultArgs";
-import "puppeteer-extra-plugin-stealth/evasions/iframe.contentWindow";
-import "puppeteer-extra-plugin-stealth/evasions/media.codecs";
-import "puppeteer-extra-plugin-stealth/evasions/navigator.hardwareConcurrency";
-import "puppeteer-extra-plugin-stealth/evasions/navigator.languages";
-import "puppeteer-extra-plugin-stealth/evasions/navigator.permissions";
-import "puppeteer-extra-plugin-stealth/evasions/navigator.plugins";
-import "puppeteer-extra-plugin-stealth/evasions/navigator.vendor";
-import "puppeteer-extra-plugin-stealth/evasions/navigator.webdriver";
-import "puppeteer-extra-plugin-stealth/evasions/sourceurl";
-import "puppeteer-extra-plugin-stealth/evasions/user-agent-override";
-import "puppeteer-extra-plugin-stealth/evasions/webgl.vendor";
-import "puppeteer-extra-plugin-stealth/evasions/window.outerdimensions";
-import "puppeteer-extra-plugin-user-data-dir";
-import "puppeteer-extra-plugin-user-preferences";
-
-// This is required to avoid detection by some websites
-puppeteer.use(StealthPlugin());
-
-// chromium.setHeadlessMode = true;
-// const remoteExecutablePath =
-//     "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar";
-
-let browser: Browser;
-
-// @sparticuz/chromium has default chromeArgs to improve serverless performance, but you can add others as you deem appropriate
-const chromeArgs = [
-    ...chromium.args,
-    // Improves font-rendering quality and spacing
-    // Disable sandbox for serverless. TODO: need to fix this by either moving
-    // chromium to Docker or self-hosting on AWS Lambda instead of Vercel
-    "--autoplay-policy=user-gesture-required",
-    "--disable-background-networking",
-    "--disable-background-timer-throttling",
-    "--disable-backgrounding-occluded-windows",
-    "--disable-breakpad",
-    "--disable-client-side-phishing-detection",
-    "--disable-component-update",
-    "--disable-default-apps",
-    "--disable-dev-shm-usage",
-    "--disable-domain-reliability",
-    "--disable-extensions",
-    "--disable-features=AudioServiceOutOfProcess",
-    "--disable-hang-monitor",
-    "--disable-ipc-flooding-protection",
-    "--disable-notifications",
-    "--disable-offer-store-unmasked-wallet-cards",
-    "--disable-popup-blocking",
-    "--disable-print-preview",
-    "--disable-prompt-on-repost",
-    "--disable-renderer-backgrounding",
-    "--disable-setuid-sandbox",
-    "--disable-speech-api",
-    "--disable-sync",
-    "--font-render-hinting=none",
-    "--hide-scrollbars",
-    "--ignore-gpu-blacklist",
-    "--metrics-recording-only",
-    "--mute-audio",
-    "--no-default-browser-check",
-    "--no-first-run",
-    "--no-pings",
-    "--no-sandbox",
-    "--no-zygote",
-    "--password-store=basic",
-    "--use-gl=swiftshader",
-    "--use-mock-keychain",
-];
 
 type Product = {
     name: string | undefined | null;
@@ -93,204 +12,8 @@ type Product = {
     description: string | undefined | null;
 };
 
-async function getProductName(page: Page) {
-    const selectors = [
-        "#productTitle",
-        "#title",
-        ".product-title-word-break",
-        "h1.a-spacing-none",
-    ];
-
-    for (const selector of selectors) {
-        try {
-            const element = await page.$(selector);
-            if (element) {
-                return await page.evaluate(
-                    (el) => el.textContent?.trim(),
-                    element
-                );
-            }
-        } catch (error) {
-            console.warn(
-                `Failed to get product name with selector ${selector}:`,
-                error
-            );
-        }
-    }
-
-    return null;
-}
-
-async function getProductImage(page: Page) {
-    const imageSelectors = [
-        "#landingImage",
-        "#imgBlkFront",
-        "#main-image",
-        "#main-image-container img[data-old-hires]",
-        "#imageBlock_feature_div img",
-    ];
-
-    for (const selector of imageSelectors) {
-        try {
-            const img = await page.$(selector);
-            if (img) {
-                // Try different image attributes
-                for (const attr of [
-                    "src",
-                    "data-old-hires",
-                    "data-a-dynamic-image",
-                ]) {
-                    const value = await page.evaluate(
-                        (el, attribute) => el.getAttribute(attribute),
-                        img,
-                        attr
-                    );
-
-                    if (value) {
-                        if (attr === "data-a-dynamic-image") {
-                            try {
-                                const images = JSON.parse(value);
-                                return Object.keys(images)[0];
-                            } catch (e) {
-                                console.warn(
-                                    "Failed to parse dynamic image JSON"
-                                );
-                                continue;
-                            }
-                        }
-                        return value;
-                    }
-                }
-            }
-        } catch (error) {
-            console.warn(
-                `Failed to get product image with selector ${selector}:`,
-                error
-            );
-        }
-    }
-
-    return null;
-}
-
-async function getProductDescription(page: Page) {
-    const descriptionSelectors = [
-        "#productDescription",
-        "#feature-bullets",
-        ".product-description",
-        "#description",
-    ];
-
-    for (const selector of descriptionSelectors) {
-        try {
-            const element = await page.$(selector);
-            if (element) {
-                const text = await page.evaluate(
-                    (el) => el.textContent?.trim(),
-                    element
-                );
-                return text?.replace(/\s+/g, " ").replace(/\n+/g, "\n").trim();
-            }
-        } catch (error) {
-            console.warn(
-                `Failed to get product description with selector ${selector}:`,
-                error
-            );
-        }
-    }
-
-    return null;
-}
-
-async function parseProduct(page: Page) {
-    // Wait for some common elements to ensure the page is loaded
-    try {
-        await page.waitForSelector(
-            [
-                "#productTitle",
-                "#title",
-                ".product-title-word-break",
-                "h1.a-spacing-none",
-            ].join(", "),
-            { timeout: 5000 }
-        );
-    } catch (error) {
-        console.warn("Timeout waiting for product elements to load");
-    }
-
-    const [name, image, description] = await Promise.all([
-        getProductName(page),
-        getProductImage(page),
-        getProductDescription(page),
-    ]);
-
-    return {
-        name,
-        image,
-        description,
-    };
-}
-
 function isURL(url: string) {
     return url.startsWith("http://") || url.startsWith("https://");
-}
-
-async function getBrowser() {
-    if (browser && browser.connected) return browser;
-
-    chromium.setGraphicsMode = false;
-
-    // @sparticuz/chromium does not work on ARM, so we use a standard Chrome
-    // executable locally - see issue
-    // https://github.com/Sparticuz/chromium/issues/186
-    if (process.env.NODE_ENV === "development") {
-        browser = await puppeteer.launch({
-            headless: true,
-            channel: "chrome",
-        });
-    } else {
-        browser = await puppeteer.launch({
-            args: chromeArgs,
-            executablePath: await chromium.executablePath(),
-            headless: true,
-        });
-    }
-    return browser;
-}
-
-async function fetchWithPuppeteer(url: string) {
-    try {
-        browser = await getBrowser();
-
-        console.log("fetching with puppeteer", url, browser);
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1920, height: 3840 });
-        await page.goto(url, {
-            waitUntil: ["domcontentloaded"],
-        });
-        const content = await page.content();
-
-        if (process.env.NODE_ENV === "development") {
-            await page.screenshot({
-                path: "pancham-screenshot.png",
-                type: "webp",
-                quality: 80,
-            });
-        }
-        // fs.writeFileSync("content.html", content);
-
-        const product = await parseProduct(page);
-        console.log("product", product);
-        await browser.close();
-        return { content, product };
-    } catch (error) {
-        console.error("error fetching with puppeteer", error);
-        throw error;
-    } finally {
-        if (process.env.NODE_ENV === "development") {
-            await browser.close();
-        }
-    }
 }
 
 export async function getOGData(
@@ -299,7 +22,19 @@ export async function getOGData(
     const isPuppeteerEnabled = process.env.ENABLE_PUPPETEER === "true";
 
     if (isPuppeteerEnabled) {
-        const { content, product } = await fetchWithPuppeteer(url);
+        const response = await fetch(
+            "https://n3hdumbu6docpxby3e2wv5cuoi0lsykn.lambda-url.ap-south-1.on.aws",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    url,
+                    isLocal: process.env.NODE_ENV === "development",
+                }),
+            }
+        );
+
+        const { content, product } = await response.json();
+
         const options: OpenGraphScraperOptions = {
             html: content,
             timeout: 4000,
@@ -342,14 +77,14 @@ export function fetchDomainFromURL(url: string) {
     return `${parsedUrl.protocol}//${parsedUrl.hostname}`;
 }
 
-export function prepareFaviconUrl(
-    favicon: string | undefined,
+export function prepareUrl(
+    relativePath: string | undefined,
     requestUrl: string
 ) {
-    if (!favicon) return "";
-    return isURLRelative(favicon)
-        ? `${fetchDomainFromURL(requestUrl)}${favicon}`
-        : favicon;
+    if (!relativePath) return "";
+    return isURLRelative(relativePath)
+        ? `${fetchDomainFromURL(requestUrl)}${relativePath}`
+        : relativePath;
 }
 
 type TextItem = {
@@ -435,15 +170,17 @@ export async function storeItem(item: File | TextItem, user: User) {
                         twitterDescription ||
                         item.description ||
                         "",
-                    faviconUrl: prepareFaviconUrl(
+                    faviconUrl: prepareUrl(
                         favicon,
                         requestUrl || ogUrl || item.content || ""
                     ),
-                    thumbnailUrl:
+                    thumbnailUrl: prepareUrl(
                         product.image ||
-                        ogImage?.[0]?.url ||
-                        twitterImage?.[0]?.url ||
-                        "",
+                            ogImage?.[0]?.url ||
+                            twitterImage?.[0]?.url ||
+                            "",
+                        requestUrl || ogUrl || item.content || ""
+                    ),
                 })
                 .$dynamic();
         } else {
