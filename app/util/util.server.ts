@@ -174,11 +174,13 @@ export async function storeItem(item: File | TextItem, user: User) {
                         favicon,
                         requestUrl || ogUrl || item.content || ""
                     ),
-                    thumbnailUrl:
+                    thumbnailUrl: prepareUrl(
                         product.image ||
-                        ogImage?.[0]?.url ||
-                        twitterImage?.[0]?.url ||
-                        "",
+                            ogImage?.[0]?.url ||
+                            twitterImage?.[0]?.url ||
+                            "",
+                        requestUrl || ogUrl || item.content || ""
+                    ),
                 })
                 .$dynamic();
         } else {

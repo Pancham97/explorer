@@ -1,0 +1,68 @@
+time=2025-01-06T20:03:12.397+05:30 level=INFO msg="checking for pulumi" path="/Users/panchamkhaitan/Library/Application Support/sst/bin/pulumi"
+time=2025-01-06T20:03:12.506+05:30 level=INFO msg="checking for bun" path="/Users/panchamkhaitan/Library/Application Support/sst/bin/bun"
+time=2025-01-06T20:03:12.511+05:30 level=INFO msg="initializing project" version=3.4.54
+time=2025-01-06T20:03:12.511+05:30 level=INFO msg="esbuild building" out=/Users/panchamkhaitan/work/explorer/.sst/platform/sst.config.1736173992511.mjs
+time=2025-01-06T20:03:12.513+05:30 level=INFO msg="esbuild built" outfile=/Users/panchamkhaitan/work/explorer/.sst/platform/sst.config.1736173992511.mjs
+time=2025-01-06T20:03:12.513+05:30 level=INFO msg="evaluating config"
+time=2025-01-06T20:03:12.548+05:30 level=INFO msg="config evaluated"
+time=2025-01-06T20:03:12.549+05:30 level=INFO msg="checking platform"
+time=2025-01-06T20:03:12.549+05:30 level=INFO msg="loading home"
+time=2025-01-06T20:03:12.549+05:30 level=INFO msg="aws credentials found" region=ap-south-1 profile=""
+time=2025-01-06T20:03:12.549+05:30 level=INFO msg="fetching bootstrap"
+time=2025-01-06T20:03:12.754+05:30 level=INFO msg="found existing bootstrap" data="{\"version\":5,\"asset\":\"sst-asset-bazxooxdfbzz\",\"assetEcrRegistryId\":\"829381179103\",\"assetEcrUrl\":\"829381179103.dkr.ecr.ap-south-1.amazonaws.com/sst-asset\",\"state\":\"sst-state-bazxooxdfbzz\",\"appsyncHttp\":\"\",\"appsyncRealtime\":\"\"}"
+time=2025-01-06T20:03:12.754+05:30 level=INFO msg="loaded config" app=sunchay stage=production
+time=2025-01-06T20:03:12.755+05:30 level=INFO msg="initializing ui" isTTY=true
+time=2025-01-06T20:03:12.755+05:30 level=INFO msg="server port assigned" port=13557
+time=2025-01-06T20:03:12.755+05:30 level=INFO msg="running stack command" cmd=remove
+time=2025-01-06T20:03:12.755+05:30 level=INFO msg="INFO locking app=sunchay stage=production"
+time=2025-01-06T20:03:12.756+05:30 level=INFO msg="INFO getting data key=lock app=sunchay stage=production"
+time=2025-01-06T20:03:12.756+05:30 level=INFO msg=server addr=0.0.0.0:13557
+time=2025-01-06T20:03:12.869+05:30 level=INFO msg="INFO putting data key=lock app=sunchay stage=production"
+time=2025-01-06T20:03:12.977+05:30 level=INFO msg="INFO putting update app=sunchay stage=production"
+time=2025-01-06T20:03:12.977+05:30 level=INFO msg="INFO putting data key=update app=sunchay stage=production/fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:13.076+05:30 level=INFO msg="INFO pulling state app=sunchay stage=production out=/Users/panchamkhaitan/work/explorer/.sst/pulumi/fffffe6bc3f7438c4f69b5af/.pulumi/stacks/sunchay/production.json"
+time=2025-01-06T20:03:13.210+05:30 level=INFO msg="INFO getting passphrase app=sunchay stage=production"
+time=2025-01-06T20:03:13.434+05:30 level=INFO msg="INFO getting data key=secret app=sunchay stage=_fallback"
+time=2025-01-06T20:03:13.434+05:30 level=INFO msg="INFO getting data key=secret app=sunchay stage=production"
+time=2025-01-06T20:03:13.688+05:30 level=INFO msg="built workspace"
+time=2025-01-06T20:03:13.760+05:30 level=INFO msg="built stack"
+time=2025-01-06T20:03:13.931+05:30 level=INFO msg="got previous deployment"
+time=2025-01-06T20:03:13.931+05:30 level=INFO msg="esbuild building" out=/Users/panchamkhaitan/work/explorer/.sst/platform/sst.config.1736173993540.mjs
+time=2025-01-06T20:03:13.953+05:30 level=INFO msg="esbuild built" outfile=/Users/panchamkhaitan/work/explorer/.sst/platform/sst.config.1736173993540.mjs
+time=2025-01-06T20:03:13.958+05:30 level=INFO msg="tracked files"
+time=2025-01-06T20:03:14.031+05:30 level=INFO msg="built config"
+time=2025-01-06T20:03:14.031+05:30 level=INFO msg="running stack command" cmd=remove
+time=2025-01-06T20:03:16.578+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:16.579+05:30 level=INFO msg="INFO pushing partial state updateID=fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:16.973+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:16.974+05:30 level=INFO msg="INFO pushing partial state updateID=fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:17.145+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:17.145+05:30 level=INFO msg="INFO pushing partial state updateID=fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:18.962+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:18.973+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:18.973+05:30 level=INFO msg="INFO pushing partial state updateID=fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:19.126+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.127+05:30 level=INFO msg="INFO pushing partial state updateID=fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:19.306+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.307+05:30 level=INFO msg="INFO pushing partial state updateID=fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.409+05:30 level=INFO msg="partial loop" cmd=1
+time=2025-01-06T20:03:19.508+05:30 level=INFO msg="waiting for partial state to finish"
+time=2025-01-06T20:03:19.508+05:30 level=INFO msg="partial loop" cmd=0
+time=2025-01-06T20:03:19.509+05:30 level=INFO msg="INFO pushing snapshot updateID=fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:19.630+05:30 level=INFO msg="parsing state"
+time=2025-01-06T20:03:19.835+05:30 level=INFO msg="generating types" root=/Users/panchamkhaitan/work/explorer
+time=2025-01-06T20:03:19.840+05:30 level=INFO msg="INFO putting update app=sunchay stage=production"
+time=2025-01-06T20:03:19.840+05:30 level=INFO msg="INFO putting data key=update app=sunchay stage=production/fffffe6bc3f744cc05bd67a4"
+time=2025-01-06T20:03:19.962+05:30 level=INFO msg="done running stack command"
+time=2025-01-06T20:03:19.966+05:30 level=INFO msg="INFO unlocking app=sunchay stage=production"
+time=2025-01-06T20:03:20.072+05:30 level=INFO msg="shutting down server"
+time=2025-01-06T20:03:20.073+05:30 level=INFO msg="server done"

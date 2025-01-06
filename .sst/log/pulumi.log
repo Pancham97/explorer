@@ -1,0 +1,37 @@
+Destroying (production):
+
+@ destroying....
+ -  aws:s3:BucketPolicy SunchayBucketPolicy deleting (0s) 
+@ destroying....
+ -  aws:s3:BucketPolicy SunchayBucketPolicy deleted (0.74s) 
+ -  aws:s3:BucketPublicAccessBlock SunchayBucketPublicAccessBlock deleting (0s) 
+ -  aws:s3:BucketCorsConfigurationV2 SunchayBucketCors deleting (0s) 
+ -  aws:iam:Role PuppeteerRole deleting (0s) 
+ -  aws:s3:BucketPublicAccessBlock SunchayBucketPublicAccessBlock deleted (0.39s) 
+ -  aws:s3:BucketCorsConfigurationV2 SunchayBucketCors deleted (0.46s) 
+@ destroying.....
+ -  aws:iam:Role PuppeteerRole deleted (2s) 
+ -  aws:s3:BucketV2 SunchayBucketBucket deleting (0s)[retain] 
+ -  aws:s3:BucketV2 SunchayBucketBucket deleted (0.00s)[retain] 
+ -  random:index:RandomId SunchayBucketId deleting (0s) 
+ -  aws:cloudwatch:LogGroup PuppeteerLogGroup deleting (0s) 
+ -  random:index:RandomId SunchayBucketId deleted (0.01s) 
+ -  aws:cloudwatch:LogGroup PuppeteerLogGroup deleted (0.16s) 
+ -  sst:aws:Bucket SunchayBucket deleting (0s) 
+ -  sst:sst:LinkRef PuppeteerLinkRef deleting (0s) 
+ -  random:index:RandomBytes LambdaEncryptionKey deleting (0s) 
+ -  sst:sst:LinkRef SunchayBucketLinkRef deleting (0s) 
+ -  sst:aws:Function Puppeteer deleting (0s) 
+ -  random:index:RandomBytes LambdaEncryptionKey deleted (0.01s) 
+ -  pulumi:pulumi:Stack sunchay-production deleting (0s) 
+ -  pulumi:pulumi:Stack sunchay-production deleted (0.00s) 
+Outputs:
+  - _protect: true
+
+Resources:
+    - 13 deleted
+
+Duration: 5s
+
+The resources in the stack have been deleted, but the history and configuration associated with the stack are still maintained. 
+If you want to remove the stack completely, run `pulumi stack rm production`.
