@@ -1,5 +1,5 @@
 import { Form, Link, useLocation } from "@remix-run/react";
-import { Moon, Sun, User } from "lucide-react";
+import { Laptop, Moon, Sun, User } from "lucide-react";
 import { Theme, useTheme } from "remix-themes";
 import { Button } from "~/components/ui/button";
 import {
@@ -7,10 +7,13 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import logo from "/logo.svg";
 import { User as UserType } from "~/session";
+import logo from "/logo.svg";
 
 function getGreetingBasedOnTime() {
     const hour = new Date().getHours();
@@ -21,7 +24,7 @@ function getGreetingBasedOnTime() {
 }
 
 export function UserActions({ user }: { user: UserType | undefined }) {
-    const [_, setTheme] = useTheme();
+    const [, setTheme] = useTheme();
 
     return (
         <DropdownMenu>
@@ -39,12 +42,21 @@ export function UserActions({ user }: { user: UserType | undefined }) {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme(Theme.LIGHT)}>
-                    Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme(Theme.DARK)}>
-                    Dark
-                </DropdownMenuItem>
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setTheme(Theme.LIGHT)}>
+                            <Sun className="w-4 h-4" /> Light
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme(Theme.DARK)}>
+                            <Moon className="w-4 h-4" /> Dark
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme(null)}>
+                            <Laptop className="w-4 h-4" /> System
+                        </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
                 <DropdownMenuSeparator />
                 <Form method="post">
                     <DropdownMenuItem className="text-red-500">

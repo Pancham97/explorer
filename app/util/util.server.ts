@@ -5,6 +5,7 @@ import { ulid } from "ulid";
 import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { User } from "~/session";
+import fs from "fs";
 
 type Product = {
     name: string | undefined | null;
@@ -57,19 +58,6 @@ export async function getOGData(url: string): Promise<GetOGDataResponse> {
 
         const { result } = await ogs(options);
 
-        if (!result.ogImage?.length) {
-            console.log("No ogImage found, fetching from URL directly");
-            const ogsDataFromURLDirectly = await ogs({
-                url,
-                timeout: 4000,
-            });
-
-            result.ogImage = ogsDataFromURLDirectly.result.ogImage;
-            result.ogTitle = ogsDataFromURLDirectly.result.ogTitle;
-            result.ogDescription = ogsDataFromURLDirectly.result.ogDescription;
-            result.ogUrl = ogsDataFromURLDirectly.result.ogUrl;
-        }
-
         // if (
         //     !screenshotUrlInDB.length &&
         //     screenshotUrl &&
@@ -113,18 +101,13 @@ export function isURLRelative(url: string) {
     return url.startsWith("/");
 }
 
-export function fetchDomainFromURL(url: string) {
-    const parsedUrl = new URL(url);
-    return `${parsedUrl.protocol}//${parsedUrl.hostname}`;
-}
-
 export function prepareUrl(
     relativePath: string | undefined,
     requestUrl: string
 ) {
     if (!relativePath) return "";
     return isURLRelative(relativePath)
-        ? `${fetchDomainFromURL(requestUrl)}${relativePath}`
+        ? `${new URL(requestUrl).origin}${relativePath}`
         : relativePath;
 }
 
