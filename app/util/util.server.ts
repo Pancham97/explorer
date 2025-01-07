@@ -53,7 +53,7 @@ export async function getOGData(url: string): Promise<GetOGDataResponse> {
 
         const options: OpenGraphScraperOptions = {
             html: content,
-            timeout: 4000,
+            timeout: 6000,
         };
 
         const { result } = await ogs(options);
