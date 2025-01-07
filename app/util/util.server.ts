@@ -3,7 +3,6 @@ import ogs from "open-graph-scraper";
 import { OgObject, OpenGraphScraperOptions } from "open-graph-scraper/types";
 import { ulid } from "ulid";
 import { db } from "~/db/db.server";
-import { screenshot } from "~/db/drizzle/schema";
 import { item as itemTable } from "~/db/schema/item";
 import { User } from "~/session";
 
@@ -26,25 +25,30 @@ function isURL(url: string) {
 export async function getOGData(url: string): Promise<GetOGDataResponse> {
     const isPuppeteerEnabled = process.env.ENABLE_PUPPETEER === "true";
 
-    const screenshotUrlInDB = await db
-        .select({ screenshotUrl: screenshot.screenshotUrl })
-        .from(screenshot)
-        .where(eq(screenshot.url, url));
+    // const screenshotUrlInDB = await db
+    //     .select({ screenshotUrl: screenshot.screenshotUrl })
+    //     .from(screenshot)
+    //     .where(eq(screenshot.url, url));
+
+    const endpoint =
+        process.env.NODE_ENV === "production"
+            ? "https://n3hdumbu6docpxby3e2wv5cuoi0lsykn.lambda-url.ap-south-1.on.aws"
+            : "https://7qv4apcznftiudu35cgrsxcuk40zmnfx.lambda-url.ap-south-1.on.aws";
 
     if (isPuppeteerEnabled) {
-        const response = await fetch(
-            "https://n3hdumbu6docpxby3e2wv5cuoi0lsykn.lambda-url.ap-south-1.on.aws",
-            // "https://7qv4apcznftiudu35cgrsxcuk40zmnfx.lambda-url.ap-south-1.on.aws",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    url,
-                    fetchScreenshot: !screenshotUrlInDB.length,
-                }),
-            }
-        );
+        const response = await fetch(endpoint, {
+            method: "POST",
+            body: JSON.stringify({
+                url,
+                // fetchScreenshot: !screenshotUrlInDB.length,
+            }),
+        });
 
-        const { content, product, screenshotUrl } = await response.json();
+        const {
+            content,
+            product,
+            //  screenshotUrl
+        } = await response.json();
 
         const options: OpenGraphScraperOptions = {
             html: content,
@@ -53,17 +57,30 @@ export async function getOGData(url: string): Promise<GetOGDataResponse> {
 
         const { result } = await ogs(options);
 
-        if (
-            !screenshotUrlInDB.length &&
-            screenshotUrl &&
-            screenshotUrl.length > 0
-        ) {
-            await db.insert(screenshot).values({
-                id: ulid(),
+        if (!result.ogImage?.length) {
+            console.log("No ogImage found, fetching from URL directly");
+            const ogsDataFromURLDirectly = await ogs({
                 url,
-                screenshotUrl,
+                timeout: 4000,
             });
+
+            result.ogImage = ogsDataFromURLDirectly.result.ogImage;
+            result.ogTitle = ogsDataFromURLDirectly.result.ogTitle;
+            result.ogDescription = ogsDataFromURLDirectly.result.ogDescription;
+            result.ogUrl = ogsDataFromURLDirectly.result.ogUrl;
         }
+
+        // if (
+        //     !screenshotUrlInDB.length &&
+        //     screenshotUrl &&
+        //     screenshotUrl.length > 0
+        // ) {
+        //     await db.insert(screenshot).values({
+        //         id: ulid(),
+        //         url,
+        //         screenshotUrl,
+        //     });
+        // }
 
         return {
             openGraphData: result,
