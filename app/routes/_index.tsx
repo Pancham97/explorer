@@ -6,6 +6,7 @@ import {
 } from "@vercel/remix";
 import { desc, eq } from "drizzle-orm";
 import React from "react";
+import { useEventSource } from "remix-utils/sse/react";
 import { ContentCard } from "~/components/ui/content-card";
 import { InProgressCard } from "~/components/ui/in-progress-card";
 import { EnhancedInputCard } from "~/components/ui/input-card";
@@ -15,7 +16,15 @@ import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { useToast } from "~/hooks/use-toast";
 import { requireUserSession } from "~/session";
-import { deleteItem, storeItem } from "~/util/util.server";
+import { emitter } from "~/util/emitter";
+import {
+    deleteItem,
+    fetchRedditData,
+    processItem,
+    savePrimaryInformation,
+} from "~/util/util.server";
+import ogs from "open-graph-scraper";
+import fs from "fs";
 
 export const meta: MetaFunction = () => {
     return [
@@ -41,6 +50,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Index() {
+    const newItemEventMessage = useEventSource("/sse/save-item", {
+        event: "new-item",
+    });
     const pasteRef = React.useRef<HTMLFormElement>(null);
     const formRef = React.useRef<HTMLFormElement>(null);
 
@@ -58,6 +70,10 @@ export default function Index() {
         ),
         []
     );
+
+    if (newItemEventMessage) {
+        console.log("newItemEventMessage", newItemEventMessage);
+    }
 
     const { items } = useLoaderData<typeof loader>();
 
@@ -216,6 +232,26 @@ export default function Index() {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+    function stripRedditURL(url: URL) {
+        const strippedURL = url.toString().split("?")[0];
+        return strippedURL;
+    }
+
+    const cleanRedditText = (text: string): string => {
+        return text
+            .normalize("NFKD") // Normalize Unicode characters
+            .replace(/[\n\r]+/g, " ") // Replace line breaks
+            .replace(/\s+/g, " ") // Normalize spaces
+            .replace(/[\u200B-\u200D\uFEFF]/g, "") // Remove zero-width spaces
+            .replace(/&amp;/g, "&") // Replace &amp; with &
+            .trim()
+            .slice(0, 360); // Remove leading/trailing whitespace
+    };
+
+    function isURL(url: string) {
+        return url.startsWith("http://") || url.startsWith("https://");
+    }
+
     const session = await requireUserSession(request);
     const user = session.get("user");
 
@@ -241,22 +277,29 @@ export async function action({ request }: ActionFunctionArgs) {
         const content = formData.get("pastedContent");
         try {
             if (content) {
-                const result = await storeItem(
+                console.log("saving primary information");
+                const savedItemInfo = await savePrimaryInformation(
                     {
                         content: content.toString(),
                     },
                     user
                 );
 
-                console.log("result", result);
-                if (result && result[0].affectedRows > 0) {
-                    return {
-                        success: true,
-                        message: "Item saved successfully!",
-                        data: result,
-                    };
-                }
+                emitter.emit("new-item", savedItemInfo?.id);
 
+                if (savedItemInfo?.id) {
+                    console.log("emitting new item");
+                    console.log("processing item");
+                    const result = await processItem(savedItemInfo?.id, user);
+                    console.log("processing result", result);
+                    if (result && result[0].affectedRows > 0) {
+                        return {
+                            success: true,
+                            message: "Item saved successfully!",
+                            data: result,
+                        };
+                    }
+                }
                 return {
                     success: false,
                     message: "Item could not be saved",
@@ -274,33 +317,159 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     if (intent === "custom-input") {
-        console.log("calling custom input save");
         const title = formData.get("title");
         const content = formData.get("content");
 
         try {
-            if (title || content) {
-                const result = await storeItem(
-                    {
-                        title: title?.toString(),
-                        content: content?.toString(),
-                    },
-                    user
-                );
-                // console.log("result", result);
-                if (result) {
+            if (content) {
+                if (isURL(content.toString())) {
+                    const response = await fetch(content.toString(), {
+                        redirect: "follow",
+                    });
+
+                    const html = await response.text();
+
+                    console.log(
+                        "data",
+                        response.url,
+                        response.redirected,
+                        new URL(response.url)
+                    );
+
+                    if (new URL(response.url).hostname.includes("reddit")) {
+                        console.log("reddit url");
+                        const redditResponse = await fetch(
+                            `${stripRedditURL(
+                                new URL(response.url)
+                            )}.json?limit=10`
+                        );
+                        console.log("redditResponse", redditResponse.headers);
+                        const isJSON = redditResponse.headers
+                            .get("content-type")
+                            ?.includes("application/json");
+                        if (isJSON) {
+                            const body = await redditResponse.json();
+                            console.log("body", body);
+                            console.log("isJSON", isJSON);
+                            if (Object.keys(body).length > 0) {
+                                const {
+                                    is_robot_indexable,
+                                    over_18,
+                                    preview,
+                                    selftext,
+                                    subreddit_name_prefixed,
+                                    subreddit,
+                                    title,
+                                    url,
+                                } = body[0].data.children[0].data;
+
+                                let image = null;
+                                if (preview?.images.length > 0) {
+                                    image = preview.images?.[0]?.source.url;
+                                }
+                                if (over_18) {
+                                    image =
+                                        preview?.images?.[0]?.variants?.nsfw
+                                            ?.source?.url;
+                                }
+
+                                console.log({
+                                    description: cleanRedditText(selftext),
+                                    image,
+                                    is_robot_indexable,
+                                    over_18,
+                                    subreddit_name_prefixed,
+                                    subreddit,
+                                    title,
+                                    url,
+                                });
+                                const savedItemInfo =
+                                    await savePrimaryInformation(
+                                        {
+                                            content: content.toString(),
+                                            title: title?.toString(),
+                                            description:
+                                                cleanRedditText(selftext),
+                                            url: new URL(
+                                                response.url
+                                            ).toString(),
+                                        },
+                                        user
+                                    );
+
+                                emitter.emit("new-item", savedItemInfo?.id);
+
+                                return {
+                                    success: true,
+                                    message: "Item saved successfully!",
+                                    data: savedItemInfo,
+                                    content,
+                                    title,
+                                };
+                            }
+                        }
+                    } else {
+                        const data = await ogs({ html });
+                        console.log("data", data);
+                        const savedItemInfo = await savePrimaryInformation(
+                            {
+                                content: content.toString(),
+                                title: title?.toString(),
+                                description: data.result.ogDescription,
+                                url: data.result.ogUrl,
+                            },
+                            user
+                        );
+
+                        emitter.emit("new-item", savedItemInfo?.id);
+
+                        return {
+                            success: true,
+                            message: "Item saved successfully!",
+                            data: savedItemInfo,
+                            content,
+                            title,
+                        };
+                    }
+                } else {
+                    const savedItemInfo = await savePrimaryInformation(
+                        {
+                            content: content.toString(),
+                        },
+                        user
+                    );
+
+                    emitter.emit("new-item", savedItemInfo?.id);
+
                     return {
-                        success: result[0].affectedRows > 0,
-                        message:
-                            result[0].affectedRows > 0
-                                ? "Item saved successfully!"
-                                : "Item could not be saved",
-                        data: result,
+                        success: true,
+                        message: "Item saved successfully!",
+                        data: savedItemInfo,
                         content,
                         title,
                     };
                 }
 
+                // if (savedItemInfo?.id) {
+                //     console.log("emitting new item", savedItemInfo);
+
+                //     const result = await processItem(
+                //         savedItemInfo?.id ?? "",
+                //         user
+                //     );
+                //     if (result) {
+                //         return {
+                //             success: result[0].affectedRows > 0,
+                //             message:
+                //                 result[0].affectedRows > 0
+                //                     ? "Item saved successfully!"
+                //                     : "Item could not be saved",
+                //             data: result,
+                //             content,
+                //             title,
+                //         };
+                //     }
+                // }
                 return {
                     success: false,
                     message: "Item could not be saved",

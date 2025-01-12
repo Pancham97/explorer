@@ -11,7 +11,7 @@ export type User = {
     firstName: string;
     lastName: string | null;
     avatarUrl: string | null;
-    userName: string | undefined;
+    userName: Maybe<string>;
     accessToken: string;
     loginProvider: string;
 };
@@ -70,9 +70,7 @@ export const themeSessionResolver = createThemeSessionResolver(
             sameSite: "lax",
             secrets: ["s3cr3t"],
             // Set domain and secure only if in production
-            ...(isProduction
-                ? { domain: "sunchay.com", secure: true }
-                : {}),
+            ...(isProduction ? { domain: "sunchay.com", secure: true } : {}),
         },
     })
 );
