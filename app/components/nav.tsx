@@ -1,5 +1,5 @@
 import { Form, Link, useLocation } from "@remix-run/react";
-import { Laptop, Moon, Sun, User } from "lucide-react";
+import { Laptop, Moon, Sun, User as UserIcon } from "lucide-react";
 import { Theme, useTheme } from "remix-themes";
 import { Button } from "~/components/ui/button";
 import {
@@ -12,8 +12,9 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { User as UserType } from "~/session";
+import { User } from "~/session";
 import logo from "/logo.svg";
+import { useEventSource } from "remix-utils/sse/react";
 
 function getGreetingBasedOnTime() {
     const hour = new Date().getHours();
@@ -23,7 +24,7 @@ function getGreetingBasedOnTime() {
     return "🌜 Good evening";
 }
 
-export function UserActions({ user }: { user: UserType | undefined }) {
+export function UserActions({ user }: { user: Maybe<User> }) {
     const [, setTheme] = useTheme();
 
     return (
@@ -37,7 +38,7 @@ export function UserActions({ user }: { user: UserType | undefined }) {
                             className="w-6 h-6 rounded-full"
                         />
                     ) : (
-                        <User className="w-6 h-6" />
+                        <UserIcon className="w-6 h-6" />
                     )}
                 </Button>
             </DropdownMenuTrigger>
@@ -68,7 +69,23 @@ export function UserActions({ user }: { user: UserType | undefined }) {
     );
 }
 
-export default function Nav({ user }: { user: UserType | undefined }) {
+function Time() {
+    const time = useEventSource("/sse/time", { event: "time" });
+    if (!time) return null;
+    return (
+        <div>
+            <time dateTime={time}>
+                {new Date(time).toLocaleTimeString("en", {
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour: "2-digit",
+                })}
+            </time>
+        </div>
+    );
+}
+
+export default function Nav({ user }: { user: Maybe<User> }) {
     const currentRoute = useLocation();
 
     if (currentRoute.pathname === "/login") {
@@ -81,12 +98,7 @@ export default function Nav({ user }: { user: UserType | undefined }) {
                 <img src={logo} alt="Sunchay app logo" className="w-10 h-10" />{" "}
                 <h1 className="text-2xl font-light font-serif">Sunchay</h1>
             </Link>
-            {/* <div>
-                {!user && <Link to="/login">Login</Link>}
-                {user && (
-                    
-                )}
-            </div> */}
+            <Time />
 
             <div className="flex items-center gap-2">
                 <h1 className="text-xl font-serif invisible md:visible">

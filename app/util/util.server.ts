@@ -1,233 +1,537 @@
 import { and, eq } from "drizzle-orm";
 import ogs from "open-graph-scraper";
 import { OgObject, OpenGraphScraperOptions } from "open-graph-scraper/types";
-import { ulid } from "ulid";
+import UserAgents from "user-agents";
 import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { User } from "~/session";
-import fs from "fs";
+import { unescape } from "html-escaper";
+import { ulid } from "ulid";
 
 type Product = {
-    name: string | undefined | null;
-    image: string | undefined | null;
-    description: string | undefined | null;
+    image: Nullable<string>;
+    description: Nullable<string>;
+    is_robot_indexable: Nullable<boolean>;
+    over_18: Nullable<boolean>;
+    subreddit_name_prefixed: Nullable<string>;
+    subreddit: Nullable<string>;
+    title: Nullable<string>;
+    url: Nullable<string>;
 };
 
 type GetOGDataResponse = {
-    openGraphData: OgObject;
-    product: Product;
+    openGraphData: OgObject | null;
+    product: Product | null;
     // screenshotUrl: string;
 };
+
+function convertToUTF8(input: string) {
+    const textEncoder = new TextEncoder();
+    const textDecoder = new TextDecoder();
+    try {
+        const utf8Bytes = textEncoder.encode(input);
+        // Filter out 4-byte sequences (anything above 0xFFFF)
+        const filteredBytes = new Uint8Array(utf8Bytes.length);
+        let outputIndex = 0;
+
+        for (let i = 0; i < utf8Bytes.length; i++) {
+            // Check for 4-byte sequence start
+            if ((utf8Bytes[i] & 0xf8) === 0xf0) {
+                // Skip the 4-byte sequence
+                i += 3;
+                continue;
+            }
+
+            filteredBytes[outputIndex++] = utf8Bytes[i];
+        }
+
+        // Trim the filtered bytes to the actual size
+        const finalBytes = filteredBytes.slice(0, outputIndex);
+
+        // Convert back to string
+        return textDecoder.decode(finalBytes);
+    } catch (error) {
+        return input;
+    }
+}
 
 function isURL(url: string) {
     return url.startsWith("http://") || url.startsWith("https://");
 }
 
-export async function getOGData(url: string): Promise<GetOGDataResponse> {
-    const isPuppeteerEnabled = process.env.ENABLE_PUPPETEER === "true";
+function stripRedditURL(url: URL) {
+    const strippedURL = url.toString().split("?")[0];
+    return strippedURL;
+}
 
+const cleanRedditText = (text: string): string => {
+    return text
+        .normalize("NFKD") // Normalize Unicode characters
+        .replace(/[\n\r]+/g, " ") // Replace line breaks
+        .replace(/\s+/g, " ") // Normalize spaces
+        .replace(/[\u200B-\u200D\uFEFF]/g, "") // Remove zero-width spaces
+        .replace(/&amp;/g, "&") // Replace &amp; with &
+        .trim()
+        .slice(0, 360); // Remove leading/trailing whitespace
+};
+
+export async function fetchRedditData(requestUrl: string) {
+    const response = await fetch(`${requestUrl}.json?limit=10`);
+    const isJSON = response.headers
+        .get("content-type")
+        ?.includes("application/json");
+    if (isJSON) {
+        const body = await response.json();
+        console.log("body", body);
+        console.log("isJSON", isJSON);
+        if (Object.keys(body).length > 0) {
+            const {
+                is_robot_indexable,
+                over_18,
+                preview,
+                selftext,
+                subreddit_name_prefixed,
+                subreddit,
+                title,
+                url,
+            } = body[0].data.children[0].data;
+
+            let image = null;
+            if (preview?.images.length > 0) {
+                image = preview.images?.[0]?.source.url;
+            }
+            if (over_18) {
+                image = preview?.images?.[0]?.variants?.nsfw?.source?.url;
+            }
+
+            return {
+                description: cleanRedditText(selftext),
+                image,
+                is_robot_indexable,
+                over_18,
+                subreddit_name_prefixed,
+                subreddit,
+                title,
+                url,
+            };
+        }
+    }
+    return null;
+}
+
+export async function getOGData(requestUrl: URL): Promise<GetOGDataResponse> {
     // const screenshotUrlInDB = await db
     //     .select({ screenshotUrl: screenshot.screenshotUrl })
     //     .from(screenshot)
     //     .where(eq(screenshot.url, url));
 
-    const endpoint =
-        process.env.NODE_ENV === "production"
-            ? "https://n3hdumbu6docpxby3e2wv5cuoi0lsykn.lambda-url.ap-south-1.on.aws"
-            : "https://7qv4apcznftiudu35cgrsxcuk40zmnfx.lambda-url.ap-south-1.on.aws";
+    const userAgent = new UserAgents({
+        deviceCategory: "desktop",
+    });
 
-    if (isPuppeteerEnabled) {
-        const response = await fetch(endpoint, {
-            method: "POST",
-            body: JSON.stringify({
-                url,
-                // fetchScreenshot: !screenshotUrlInDB.length,
-            }),
-        });
-
-        const {
-            content,
-            product,
-            //  screenshotUrl
-        } = await response.json();
-
+    try {
+        if (requestUrl.hostname.includes("reddit.com")) {
+            throw new Error("Reddit URL not supported");
+        } else if (requestUrl.hostname.includes("amazon")) {
+            throw new Error("Amazon URL not supported");
+        }
         const options: OpenGraphScraperOptions = {
-            html: content,
-            timeout: 6000,
+            url: requestUrl.toString(),
+            fetchOptions: {
+                headers: {
+                    // Some sites block default User-Agent
+                    "User-Agent": userAgent.random().toString(),
+                },
+            },
+            timeout: 4000,
         };
 
         const { result } = await ogs(options);
-
-        // if (
-        //     !screenshotUrlInDB.length &&
-        //     screenshotUrl &&
-        //     screenshotUrl.length > 0
-        // ) {
-        //     await db.insert(screenshot).values({
-        //         id: ulid(),
-        //         url,
-        //         screenshotUrl,
-        //     });
-        // }
-
         return {
             openGraphData: result,
-            product,
+            product: {
+                description: null,
+                image: null,
+                title: null,
+                url: null,
+                is_robot_indexable: null,
+                over_18: null,
+                subreddit_name_prefixed: null,
+                subreddit: null,
+            },
         };
+        // const options: OpenGraphScraperOptions = {
+        //     url: requestUrl.toString(),
+        //     fetchOptions: {
+        //         headers: {
+        //             // Some sites block default User-Agent
+        //             "User-Agent": userAgent.random().toString(),
+        //         },
+        //     },
+        //     timeout: 4000,
+        // };
+
+        // const ogsResponse = await ogs(options);
+    } catch (error) {
+        console.error("Error fetching OG data", error);
+        if (requestUrl.hostname.includes("reddit.com")) {
+            const strippedRedditURL = stripRedditURL(requestUrl);
+
+            const redditData = await fetchRedditData(strippedRedditURL);
+            if (redditData) {
+                const {
+                    description,
+                    is_robot_indexable,
+                    over_18,
+                    subreddit_name_prefixed,
+                    subreddit,
+                    title,
+                    url,
+                    image,
+                } = redditData;
+                return {
+                    openGraphData: {
+                        // ...ogsResponse.result,
+                        // ...ogsResponse.response,
+                    },
+                    product: {
+                        description,
+                        image,
+                        is_robot_indexable,
+                        over_18,
+                        subreddit_name_prefixed,
+                        subreddit,
+                        title,
+                        url,
+                    },
+                };
+            }
+        }
+
+        const endpoint =
+            process.env.NODE_ENV === "production"
+                ? "https://n3hdumbu6docpxby3e2wv5cuoi0lsykn.lambda-url.ap-south-1.on.aws"
+                : "https://7qv4apcznftiudu35cgrsxcuk40zmnfx.lambda-url.ap-south-1.on.aws";
+
+        // const userAgent = new UserAgents({
+        //     deviceCategory: "desktop",
+        // });
+
+        // console.log("calling default ogs");
+        // const options: OpenGraphScraperOptions = {
+        //     url,
+        //     fetchOptions: {
+        //         headers: {
+        //             // Some sites block default User-Agent
+        //             "User-Agent": userAgent.random().toString(),
+        //         },
+        //     },
+        //     timeout: 4000,
+        // };
+
+        // try {
+        //     const response = await ogs(options);
+        //     console.log("defaultOgsResult", response.result);
+        //     return {
+        //         openGraphData: response.result,
+        //         product: { description: null, image: null, name: null },
+        //         // screenshotUrl: "",
+        //     };
+        // } catch (error) {
+        //     console.error("Error fetching OG data", error);
+        //     if (error) {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            body: JSON.stringify({
+                url: requestUrl,
+            }),
+        });
+
+        console.log("Lambda response", response);
+
+        if (
+            response.headers.get("content-type")?.includes("application/json")
+        ) {
+            const {
+                content,
+                product,
+                //  screenshotUrl
+            } = await response.json();
+
+            const htmlOptions: OpenGraphScraperOptions = {
+                html: content,
+                timeout: 6000,
+            };
+
+            const { result } = await ogs(htmlOptions);
+
+            // if (
+            //     !screenshotUrlInDB.length &&
+            //     screenshotUrl &&
+            //     screenshotUrl.length > 0
+            // ) {
+            //     await db.insert(screenshot).values({
+            //         id: ulid(),
+            //         url,
+            //         screenshotUrl,
+            //     });
+            // }
+
+            return {
+                openGraphData: result,
+                product,
+            };
+        }
     }
 
-    const options: OpenGraphScraperOptions = {
-        url,
-        fetchOptions: {
-            headers: {
-                // Some sites block default User-Agent
-                "User-Agent":
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.124 Safari/537.36",
-            },
-        },
-        timeout: 4000,
-    };
-
-    const { result } = await ogs(options);
-
     return {
-        openGraphData: result,
-        product: { description: null, image: null, name: null },
-        // screenshotUrl: "",
+        openGraphData: null,
+        product: null,
     };
+
+    //     }
+    //     throw error;
+    // }
 }
 
 export function isURLRelative(url: string) {
-    return url.startsWith("/");
+    return !url.startsWith("http://") && !url.startsWith("https://");
 }
 
-export function prepareUrl(
-    relativePath: string | undefined,
-    requestUrl: string
-) {
+export function prepareUrl(relativePath: Maybe<string>, requestUrl: string) {
+    console.log("relativePath", relativePath);
+    console.log("requestUrl", requestUrl);
     if (!relativePath) return "";
-    return isURLRelative(relativePath)
-        ? `${new URL(requestUrl).origin}${relativePath}`
-        : relativePath;
+    if (isURLRelative(relativePath)) {
+        if (relativePath.startsWith("/")) {
+            return `${new URL(requestUrl).origin}${relativePath}`;
+        } else {
+            return `${new URL(requestUrl).origin}/${relativePath}`;
+        }
+    }
+
+    return unescape(relativePath);
 }
 
-type TextItem = {
+export type TextItem = {
+    id?: string;
     title?: string;
     content?: string;
     description?: string;
     url?: string;
 };
 
-export async function storeItem(item: File | TextItem, user: User) {
+export async function savePrimaryInformation(item: TextItem, user: User) {
+    if (item instanceof File) {
+        return null;
+    } else if (isURL(item.content || "")) {
+        const basicItem = {
+            title: item.title || "",
+            userId: user.id,
+            content: item.content || "",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            lastAccessedAt: new Date(),
+            description: item.description || "",
+        };
+
+        const doesItemExist = await db
+            .select()
+            .from(itemTable)
+            .where(
+                and(
+                    eq(itemTable.url, item.content || ""),
+                    eq(itemTable.userId, user.id)
+                )
+            );
+
+        console.log("doesItemExist", doesItemExist);
+
+        if (doesItemExist.length) {
+            // update the updatedAt date
+            return {
+                id: doesItemExist[0].id,
+                affectedRows: await db
+                    .update(itemTable)
+                    .set({ updatedAt: new Date() })
+                    .where(eq(itemTable.id, doesItemExist[0].id)),
+            };
+        } else {
+            const id = ulid();
+            return {
+                id,
+                affectedRows: await db
+                    .insert(itemTable)
+                    .values({
+                        ...basicItem,
+                        id,
+                        url: item.content || "",
+                        type: "url",
+                        tags: {},
+                        isFavorite: 0,
+                        metadata: {},
+                        faviconUrl: "",
+                        thumbnailUrl: "",
+                    })
+                    .$returningId(),
+            };
+        }
+    } else {
+        const basicItem = {
+            title: item.title || "",
+            userId: user.id,
+            content: item.content || "",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            lastAccessedAt: new Date(),
+            description: item.description || "",
+        };
+
+        const doesItemExist = await db
+            .select()
+            .from(itemTable)
+            .where(
+                and(
+                    eq(itemTable.content, item.content || ""),
+                    eq(itemTable.userId, user.id)
+                )
+            );
+
+        if (doesItemExist.length) {
+            // update the updatedAt date
+            return {
+                id: doesItemExist[0].id,
+                affectedRows: await db
+                    .update(itemTable)
+                    .set({ updatedAt: new Date() })
+                    .where(eq(itemTable.id, doesItemExist[0].id)),
+            };
+        } else {
+            const id = ulid();
+            return {
+                id,
+                affectedRows: await db
+                    .insert(itemTable)
+                    .values({
+                        ...basicItem,
+                        id,
+                        type: "text",
+                    })
+                    .$returningId(),
+            };
+        }
+    }
+}
+
+export async function processItem(id: string, user: User) {
+    const items = await db
+        .select()
+        .from(itemTable)
+        .where(and(eq(itemTable.id, id), eq(itemTable.userId, user.id)));
+    console.log("processing items", items);
+    if (!items.length) return null;
+    const item = items[0];
     if (item instanceof File) {
         return null;
     } else {
-        if (isURL(item.content || "")) {
+        if (item.type === "url") {
             const { openGraphData, product } = await getOGData(
-                item.content ?? ""
+                new URL(item.url || "")
             );
-            // console.log("openGraphData", openGraphData);
-            const {
-                author,
-                customMetaTags,
-                favicon,
-                ogDescription,
-                ogImage,
-                ogSiteName,
-                ogTitle,
-                ogType,
-                ogUrl,
-                requestUrl,
-                twitterDescription,
-                dcType,
-                twitterImage,
-                twitterSite,
-                twitterSiteId,
-                twitterTitle,
-            } = openGraphData;
 
-            // console.log("openGraphData", openGraphData);
+            if (openGraphData && product) {
+                const {
+                    author,
+                    customMetaTags,
+                    favicon,
+                    ogDescription,
+                    ogImage,
+                    ogSiteName,
+                    ogTitle,
+                    ogType,
+                    ogUrl,
+                    requestUrl,
+                    twitterDescription,
+                    dcType,
+                    twitterImage,
+                    twitterSite,
+                    twitterSiteId,
+                    twitterTitle,
+                } = openGraphData;
 
-            const itemID = ulid();
+                console.log("product -<<<<>>>>>", product);
 
-            // const content = await fetchWithPuppeteer(item.content || "");
-
-            return await db
-                .insert(itemTable)
-                .values({
-                    id: itemID,
-                    url: item.content || requestUrl,
-                    title:
-                        product.name ||
-                        ogTitle ||
-                        twitterTitle ||
-                        item.title ||
-                        "",
-                    type: "url",
-                    tags: {},
-                    isFavorite: 0,
-                    metadata: {
-                        author,
-                        customMetaTags,
-                        favicon,
-                        ogDescription,
-                        ogImage,
-                        ogSiteName,
-                        dcType,
-                        ogTitle,
-                        ogType,
-                        ogUrl,
-                        requestUrl,
-                        twitterDescription,
-                        twitterImage,
-                        twitterSite,
-                        twitterSiteId,
-                        twitterTitle,
-                    },
-                    userId: user.id,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    lastAccessedAt: new Date(),
-                    description:
-                        product.description?.slice(0, 360) ||
-                        ogDescription?.slice(0, 360) ||
-                        twitterDescription?.slice(0, 360) ||
-                        item.description?.slice(0, 360) ||
-                        "",
-                    faviconUrl: prepareUrl(
-                        favicon,
-                        requestUrl || ogUrl || item.content || ""
-                    ),
-                    thumbnailUrl: prepareUrl(
-                        product.image ||
-                            ogImage?.[0]?.url ||
-                            twitterImage?.[0]?.url ||
-                            "",
-                        requestUrl || ogUrl || item.content || ""
-                    ),
-                })
-                .$dynamic();
+                return await db
+                    .update(itemTable)
+                    .set({
+                        title: convertToUTF8(
+                            product.title ||
+                                ogTitle ||
+                                twitterTitle ||
+                                item.title ||
+                                ""
+                        ),
+                        tags: {},
+                        metadata: {
+                            author,
+                            customMetaTags,
+                            favicon,
+                            ogDescription: ogDescription || product.description,
+                            ogImage: ogImage || product.image,
+                            ogSiteName:
+                                ogSiteName || product.subreddit_name_prefixed,
+                            dcType,
+                            ogTitle: convertToUTF8(
+                                ogTitle || product.title || ""
+                            ),
+                            ogType,
+                            ogUrl: ogUrl || product.url,
+                            requestUrl,
+                            twitterDescription: convertToUTF8(
+                                twitterDescription || product.description || ""
+                            ),
+                            twitterImage: twitterImage || product.image,
+                            twitterSite: twitterSite || product.subreddit,
+                            twitterSiteId,
+                            twitterTitle: convertToUTF8(
+                                twitterTitle || product.title || ""
+                            ),
+                        },
+                        updatedAt: new Date(),
+                        description: convertToUTF8(
+                            product.description?.slice(0, 360) ||
+                                ogDescription?.slice(0, 360) ||
+                                twitterDescription?.slice(0, 360) ||
+                                item.description?.slice(0, 360) ||
+                                ""
+                        ),
+                        faviconUrl: prepareUrl(
+                            favicon,
+                            requestUrl || ogUrl || item.content || ""
+                        ),
+                        thumbnailUrl: prepareUrl(
+                            product.image ||
+                                ogImage?.[0]?.url ||
+                                twitterImage?.[0]?.url ||
+                                "",
+                            requestUrl || ogUrl || item.content || ""
+                        ),
+                    })
+                    .where(eq(itemTable.id, item.id))
+                    .$dynamic();
+            }
         } else {
-            const itemID = ulid();
             return await db
-                .insert(itemTable)
-                .values({
-                    id: itemID,
-                    url: null,
+                .update(itemTable)
+                .set({
                     title: item.title || "",
-                    content: item.content || "",
-                    type: "text",
                     tags: {},
-                    isFavorite: 0,
                     metadata: {},
-                    userId: user.id,
-                    createdAt: new Date(),
                     updatedAt: new Date(),
                     lastAccessedAt: new Date(),
                     description: item.description || "",
-                    faviconUrl: "",
-                    thumbnailUrl: "",
                 })
+                .where(eq(itemTable.id, item.id))
                 .$dynamic();
         }
     }

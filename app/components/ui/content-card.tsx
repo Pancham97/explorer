@@ -85,14 +85,19 @@ export const ContentCard = ({
                 </CardContent>
             );
         } else if (content.type === "url") {
-            cardContent = (
-                <CardContent className="p-0">
+            let thumbnailImage;
+            if (content.thumbnailUrl) {
+                thumbnailImage = (
                     <img
-                        src={content.thumbnailUrl || FALLBACK_THUMBNAIL}
+                        src={content.thumbnailUrl}
                         alt={content.title || ""}
                         className="w-full h-auto object-cover"
-                        onLoad={() => setIsLoaded(true)}
                     />
+                );
+            }
+            cardContent = (
+                <CardContent className="p-0">
+                    {thumbnailImage}
                     <Link
                         to={content.url || ""}
                         target="_blank"

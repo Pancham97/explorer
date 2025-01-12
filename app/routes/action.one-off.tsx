@@ -21,6 +21,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const formData = await request.formData();
     const action = formData.get("_action");
     if (action === "update-favicons") {
+        console.log("updating favicons");
         const allItemsAcrossUsers = await db.select().from(item);
         for (const tableItem of allItemsAcrossUsers) {
             if (
@@ -39,7 +40,9 @@ export async function action({ request }: ActionFunctionArgs) {
                     .where(eq(item.id, tableItem.id));
             }
         }
+        console.log("done updating favicons");
     } else if (action === "update-thumbnail-urls") {
+        console.log("updating thumbnail urls");
         const allItemsAcrossUsers = await db.select().from(item);
         for (const tableItem of allItemsAcrossUsers) {
             if (
@@ -57,6 +60,7 @@ export async function action({ request }: ActionFunctionArgs) {
                     .where(eq(item.id, tableItem.id));
             }
         }
+        console.log("done updating thumbnail urls");
     }
 
     return { success: true, status: 200 };

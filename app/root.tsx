@@ -61,7 +61,7 @@ export function InnerLayout({
 }: {
     children: React.ReactNode;
     ssrTheme: boolean;
-    user: User | undefined;
+    user: Maybe<User>;
 }) {
     const [theme] = useTheme();
 
