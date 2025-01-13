@@ -413,15 +413,38 @@ export async function action({ request }: ActionFunctionArgs) {
                         console.log("data", data);
                         const savedItemInfo = await savePrimaryInformation(
                             {
-                                content: content.toString(),
-                                title: title?.toString(),
-                                description: data.result.ogDescription,
+                                content:
+                                    data.result.ogDescription ||
+                                    content.toString(),
+                                title: data.result.ogTitle || title?.toString(),
+                                description: data.result.ogDescription || "",
                                 url: data.result.ogUrl,
                             },
                             user
                         );
 
                         emitter.emit("new-item", savedItemInfo?.id);
+
+                        if (savedItemInfo?.id) {
+                            console.log("emitting new item", savedItemInfo);
+
+                            const result = await processItem(
+                                savedItemInfo?.id ?? "",
+                                user
+                            );
+                            if (result) {
+                                return {
+                                    success: result[0].affectedRows > 0,
+                                    message:
+                                        result[0].affectedRows > 0
+                                            ? "Item saved successfully!"
+                                            : "Item could not be saved",
+                                    data: result,
+                                    content,
+                                    title,
+                                };
+                            }
+                        }
 
                         return {
                             success: true,
@@ -450,26 +473,6 @@ export async function action({ request }: ActionFunctionArgs) {
                     };
                 }
 
-                // if (savedItemInfo?.id) {
-                //     console.log("emitting new item", savedItemInfo);
-
-                //     const result = await processItem(
-                //         savedItemInfo?.id ?? "",
-                //         user
-                //     );
-                //     if (result) {
-                //         return {
-                //             success: result[0].affectedRows > 0,
-                //             message:
-                //                 result[0].affectedRows > 0
-                //                     ? "Item saved successfully!"
-                //                     : "Item could not be saved",
-                //             data: result,
-                //             content,
-                //             title,
-                //         };
-                //     }
-                // }
                 return {
                     success: false,
                     message: "Item could not be saved",
