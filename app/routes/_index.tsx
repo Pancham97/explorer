@@ -19,12 +19,9 @@ import { requireUserSession } from "~/session";
 import { emitter } from "~/util/emitter";
 import {
     deleteItem,
-    fetchRedditData,
     processItem,
     savePrimaryInformation,
 } from "~/util/util.server";
-import ogs from "open-graph-scraper";
-import fs from "fs";
 
 export const meta: MetaFunction = () => {
     return [
@@ -210,7 +207,7 @@ export default function Index() {
                 <Motion key={item.id}>
                     <ContentCard
                         key={item.id}
-                        content={item}
+                        data={item}
                         onDelete={handleDelete}
                     />
                 </Motion>
@@ -232,36 +229,15 @@ export default function Index() {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-    function stripRedditURL(url: URL) {
-        const strippedURL = url.toString().split("?")[0];
-        return strippedURL;
-    }
-
-    const cleanRedditText = (text: string): string => {
-        return text
-            .normalize("NFKD") // Normalize Unicode characters
-            .replace(/[\n\r]+/g, " ") // Replace line breaks
-            .replace(/\s+/g, " ") // Normalize spaces
-            .replace(/[\u200B-\u200D\uFEFF]/g, "") // Remove zero-width spaces
-            .replace(/&amp;/g, "&") // Replace &amp; with &
-            .trim()
-            .slice(0, 360); // Remove leading/trailing whitespace
-    };
-
-    function isURL(url: string) {
-        return url.startsWith("http://") || url.startsWith("https://");
-    }
-
     const session = await requireUserSession(request);
     const user = session.get("user");
 
     if (!user) {
         return { message: "User not found", success: false };
     }
+
     const formData = await request.formData();
     const intent = formData.get("intent");
-
-    console.log("intent", intent);
 
     if (intent === "paste") {
         if (request.headers.get("Content-Type") === "multipart/form-data") {
@@ -279,27 +255,21 @@ export async function action({ request }: ActionFunctionArgs) {
             if (content) {
                 console.log("saving primary information");
                 const savedItemInfo = await savePrimaryInformation(
-                    {
-                        content: content.toString(),
-                    },
+                    content.toString(),
                     user
                 );
 
                 emitter.emit("new-item", savedItemInfo?.id);
 
                 if (savedItemInfo?.id) {
-                    console.log("emitting new item");
-                    console.log("processing item");
-                    const result = await processItem(savedItemInfo?.id, user);
-                    console.log("processing result", result);
-                    if (result && result[0].affectedRows > 0) {
-                        return {
-                            success: true,
-                            message: "Item saved successfully!",
-                            data: result,
-                        };
-                    }
+                    processItem(savedItemInfo?.id, user);
+                    return {
+                        success: true,
+                        message: "Item saved successfully!",
+                        data: savedItemInfo,
+                    };
                 }
+
                 return {
                     success: false,
                     message: "Item could not be saved",
@@ -322,147 +292,17 @@ export async function action({ request }: ActionFunctionArgs) {
 
         try {
             if (content) {
-                if (isURL(content.toString())) {
-                    const response = await fetch(content.toString(), {
-                        redirect: "follow",
-                    });
+                const savedItemInfo = await savePrimaryInformation(
+                    content.toString(),
+                    user
+                );
 
-                    const html = await response.text();
+                emitter.emit("new-item", savedItemInfo?.id);
 
-                    console.log(
-                        "data",
-                        response.url,
-                        response.redirected,
-                        new URL(response.url)
-                    );
+                if (savedItemInfo?.id) {
+                    console.log("emitting new item", savedItemInfo);
 
-                    if (new URL(response.url).hostname.includes("reddit")) {
-                        console.log("reddit url");
-                        const redditResponse = await fetch(
-                            `${stripRedditURL(
-                                new URL(response.url)
-                            )}.json?limit=10`
-                        );
-                        console.log("redditResponse", redditResponse.headers);
-                        const isJSON = redditResponse.headers
-                            .get("content-type")
-                            ?.includes("application/json");
-                        if (isJSON) {
-                            const body = await redditResponse.json();
-                            console.log("body", body);
-                            console.log("isJSON", isJSON);
-                            if (Object.keys(body).length > 0) {
-                                const {
-                                    is_robot_indexable,
-                                    over_18,
-                                    preview,
-                                    selftext,
-                                    subreddit_name_prefixed,
-                                    subreddit,
-                                    title,
-                                    url,
-                                } = body[0].data.children[0].data;
-
-                                let image = null;
-                                if (preview?.images.length > 0) {
-                                    image = preview.images?.[0]?.source.url;
-                                }
-                                if (over_18) {
-                                    image =
-                                        preview?.images?.[0]?.variants?.nsfw
-                                            ?.source?.url;
-                                }
-
-                                console.log({
-                                    description: cleanRedditText(selftext),
-                                    image,
-                                    is_robot_indexable,
-                                    over_18,
-                                    subreddit_name_prefixed,
-                                    subreddit,
-                                    title,
-                                    url,
-                                });
-                                const savedItemInfo =
-                                    await savePrimaryInformation(
-                                        {
-                                            content: content.toString(),
-                                            title: title?.toString(),
-                                            description:
-                                                cleanRedditText(selftext),
-                                            url: new URL(
-                                                response.url
-                                            ).toString(),
-                                        },
-                                        user
-                                    );
-
-                                emitter.emit("new-item", savedItemInfo?.id);
-
-                                return {
-                                    success: true,
-                                    message: "Item saved successfully!",
-                                    data: savedItemInfo,
-                                    content,
-                                    title,
-                                };
-                            }
-                        }
-                    } else {
-                        const data = await ogs({ html });
-                        console.log("data", data);
-                        const savedItemInfo = await savePrimaryInformation(
-                            {
-                                content:
-                                    data.result.ogDescription ||
-                                    content.toString(),
-                                title: data.result.ogTitle || title?.toString(),
-                                description: data.result.ogDescription || "",
-                                url: data.result.ogUrl,
-                            },
-                            user
-                        );
-
-                        emitter.emit("new-item", savedItemInfo?.id);
-
-                        if (savedItemInfo?.id) {
-                            console.log("emitting new item", savedItemInfo);
-
-                            const result = await processItem(
-                                savedItemInfo?.id ?? "",
-                                user
-                            );
-                            if (result) {
-                                return {
-                                    success: result[0].affectedRows > 0,
-                                    message:
-                                        result[0].affectedRows > 0
-                                            ? "Item saved successfully!"
-                                            : "Item could not be saved",
-                                    data: result,
-                                    content,
-                                    title,
-                                };
-                            }
-                        }
-
-                        return {
-                            success: true,
-                            message: "Item saved successfully!",
-                            data: savedItemInfo,
-                            content,
-                            title,
-                        };
-                    }
-                } else {
-                    const savedItemInfo = await savePrimaryInformation(
-                        {
-                            content: content.toString(),
-                        },
-                        user
-                    );
-
-                    emitter.emit("new-item", savedItemInfo?.id);
+                    processItem(savedItemInfo?.id ?? "", user);
 
                     return {
                         success: true,

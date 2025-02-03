@@ -1,0 +1,6 @@
+POST http://localhost:8080/item
+Content-Type: "application/json"
+
+{
+	"content": "https://www.amazon.in/AutoStory-Homework-Teaching-Effective-Management/dp/B09VSXF8Q5/ref=sxin_15_pa_sp_search_thematic_sspa?content-id=amzn1.sym.0d92f515-0840-4484-ae33-78368716b8af%3Aamzn1.sym.0d92f515-0840-4484-ae33-78368716b8af&cv_ct_cx=pomodoro%2Btimer&keywords=pomodoro%2Btimer&pd_rd_i=B09VSXF8Q5&pd_rd_r=b4bb0d57-b5b5-437d-aa22-89ca4eedc44d&pd_rd_w=P5rOh&pd_rd_wg=7AxrF&pf_rd_p=0d92f515-0840-4484-ae33-78368716b8af&pf_rd_r=YCQW5NP3SH1B5P3Y9G89&qid=1737371280&sbo=RZvfv%2F%2FHxDF%2BO5021pAnSA%3D%3D&sr=1-5-66673dcf-083f-43ba-b782-d4a436cc5cfb-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9zZWFyY2hfdGhlbWF0aWM&th=1"
+}

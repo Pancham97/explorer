@@ -1,6 +1,6 @@
 import { Link } from "@remix-run/react";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
-import React from "react";
+import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
     ContextMenu,
@@ -29,69 +29,65 @@ import { copyToClipboard, getDomainFromUrl } from "~/lib/utils";
 
 const FALLBACK_THUMBNAIL = "/opengraph-fallback.jpg";
 
-export const ContentCard = ({
-    content,
-    onDelete,
-}: {
-    content: typeof itemTable.$inferSelect;
+type ContentCardProps = {
+    data: typeof itemTable.$inferSelect;
     onDelete: (id: string) => void;
-}) => {
-    const [, setIsLoaded] = React.useState(!content.thumbnailUrl);
+};
+
+export const ContentCard = ({
+    data: { title, content, type, url, thumbnailUrl, faviconUrl, id },
+    onDelete,
+}: ContentCardProps) => {
+    const [, setIsLoaded] = React.useState(!thumbnailUrl);
 
     let copyMenuItem;
-    if (content.type === "url" && content.url && content.url.length > 0) {
+    if (type === "url" && url && url.length > 0) {
         copyMenuItem = (
-            <ContextMenuItem onClick={() => copyToClipboard(content.url || "")}>
+            <ContextMenuItem onClick={() => copyToClipboard(url || "")}>
                 Copy URL
             </ContextMenuItem>
         );
-    } else if (
-        content.type === "text" &&
-        content.content &&
-        content.content.length > 0
-    ) {
+    } else if (type === "text" && content && content.length > 0) {
         copyMenuItem = (
-            <ContextMenuItem
-                onClick={() => copyToClipboard(content.content || "")}
-            >
+            <ContextMenuItem onClick={() => copyToClipboard(content || "")}>
                 Copy Text
             </ContextMenuItem>
         );
     }
 
     let cardVariant;
-    if (content.type === "file") {
+    if (type === "file") {
         cardVariant = (
             <Card>
                 <CardContent>
                     <img
-                        src={content.thumbnailUrl || FALLBACK_THUMBNAIL}
-                        alt={content.title || ""}
+                        src={thumbnailUrl || FALLBACK_THUMBNAIL}
+                        alt={title || ""}
                         className="w-full h-auto object-cover"
                         onLoad={() => setIsLoaded(true)}
                     />
                 </CardContent>
                 <CardHeader>
-                    <CardTitle>{content.title}</CardTitle>
+                    <CardTitle>{title}</CardTitle>
                 </CardHeader>
             </Card>
         );
     } else {
         let cardContent;
-        if (content.type === "text") {
+        if (type === "text") {
             cardContent = (
-                <CardContent className="pt-6">
-                    <p>{content.content}</p>
+                <CardContent className="pt-6 overflow-hidden overflow-ellipsis text-wrap line-clamp-5 relative after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:bg-gradient-to-t after:from-card after:via-card/80 after:to-transparent">
+                    {content}
                 </CardContent>
             );
-        } else if (content.type === "url") {
+        } else if (type === "url") {
             let thumbnailImage;
-            if (content.thumbnailUrl) {
+            if (thumbnailUrl) {
                 thumbnailImage = (
                     <img
-                        src={content.thumbnailUrl}
-                        alt={content.title || ""}
-                        className="w-full h-auto object-cover"
+                        src={thumbnailUrl}
+                        alt={title || ""}
+                        className="w-full h-auto object-cover rounded-md"
                     />
                 );
             }
@@ -99,13 +95,13 @@ export const ContentCard = ({
                 <CardContent className="p-0">
                     {thumbnailImage}
                     <Link
-                        to={content.url || ""}
+                        to={url || ""}
                         target="_blank"
                         rel="noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="absolute bottom-0 right-0 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm"
+                        className="absolute bottom-1 right-1 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm"
                     >
-                        {getDomainFromUrl(content.url || "")}
+                        {getDomainFromUrl(url || "")}
                         <ArrowUpRight />
                     </Link>
                 </CardContent>
@@ -113,22 +109,16 @@ export const ContentCard = ({
         }
 
         let copyContentMenuItem;
-        if (content.type === "url" && content.url && content.url.length > 0) {
+        if (type === "url" && url && url.length > 0) {
             copyContentMenuItem = (
-                <DropdownMenuItem
-                    onClick={() => copyToClipboard(content.url || "")}
-                >
+                <DropdownMenuItem onClick={() => copyToClipboard(url || "")}>
                     Copy URL
                 </DropdownMenuItem>
             );
-        } else if (
-            content.type === "text" &&
-            content.content &&
-            content.content.length > 0
-        ) {
+        } else if (type === "text" && content && content.length > 0) {
             copyContentMenuItem = (
                 <DropdownMenuItem
-                    onClick={() => copyToClipboard(content.content || "")}
+                    onClick={() => copyToClipboard(content || "")}
                 >
                     Copy Text
                 </DropdownMenuItem>
@@ -140,18 +130,18 @@ export const ContentCard = ({
                 <Dialog>
                     <DialogTrigger asChild className="cursor-pointer">
                         <Card className="hover:border-ring transition-[border] duration-300 relative w-full">
-                            {content.faviconUrl || content.title ? (
+                            {faviconUrl || title ? (
                                 <CardHeader className="p-4">
-                                    {content.faviconUrl && (
+                                    {faviconUrl && (
                                         <img
-                                            src={content.faviconUrl || ""}
-                                            alt={content.title || ""}
+                                            src={faviconUrl || ""}
+                                            alt={title || ""}
                                             className="w-6 h-6 mb-8 grayscale group-hover:grayscale-0"
                                         />
                                     )}
-                                    {content.title && (
+                                    {title && (
                                         <CardTitle className="font-serif font-normal text-xl">
-                                            {content.title}
+                                            {title}
                                         </CardTitle>
                                     )}
                                 </CardHeader>
@@ -162,10 +152,8 @@ export const ContentCard = ({
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>{content.title}</DialogTitle>
-                            <DialogDescription>
-                                {content.content}
-                            </DialogDescription>
+                            <DialogTitle>{title}</DialogTitle>
+                            <DialogDescription>{content}</DialogDescription>
                         </DialogHeader>
                     </DialogContent>
                 </Dialog>
@@ -181,7 +169,7 @@ export const ContentCard = ({
                         {copyContentMenuItem}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                            onClick={() => onDelete(content.id)}
+                            onClick={() => onDelete(id)}
                             className="text-red-500"
                         >
                             Delete
@@ -193,7 +181,7 @@ export const ContentCard = ({
     }
 
     return (
-        <ContextMenu key={content.id}>
+        <ContextMenu key={id}>
             <ContextMenuTrigger>
                 <div className={`break-inside-avoid mb-4 md:mb-6`}>
                     {cardVariant}
@@ -204,7 +192,7 @@ export const ContentCard = ({
                 {copyMenuItem}
                 <ContextMenuSeparator />
                 <ContextMenuItem
-                    onClick={() => onDelete(content.id)}
+                    onClick={() => onDelete(id)}
                     className="text-red-500"
                 >
                     Delete
