@@ -1,0 +1,2 @@
+GET http://localhost:8080/metadata/01JJ1PCKGAW33R0GXKAJR50G9M
+Content-Type: application/json

@@ -46,3 +46,30 @@ Make sure to deploy the output of `npm run build`
 ## Styling
 
 This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever css framework you prefer. See the [Vite docs on css](https://vitejs.dev/guide/features.html#css) for more information.
+
+# Backend
+
+It's a simple go server built using the Gin Framework. https://gin-gonic.com/
+
+## How to run backend locally
+
+```shellscript
+cd backend
+go run .
+```
+
+# Infrastructure
+
+It's built using SST.
+
+## How to run infrastructure locally
+
+```shellscript
+make sst-deploy-local
+```
+
+## How to deploy infrastructure to AWS
+
+```shellscript
+make sst-deploy
+```

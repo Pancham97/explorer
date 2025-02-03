@@ -98,7 +98,7 @@ export default function Nav({ user }: { user: Maybe<User> }) {
                 <img src={logo} alt="Sunchay app logo" className="w-10 h-10" />{" "}
                 <h1 className="text-2xl font-light font-serif">Sunchay</h1>
             </Link>
-            <Time />
+            {/* <Time /> */}
 
             <div className="flex items-center gap-2">
                 <h1 className="text-xl font-serif invisible md:visible">
