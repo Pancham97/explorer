@@ -1,4 +1,9 @@
-import { data, useFetcher, useLoaderData } from "@remix-run/react";
+import {
+    data,
+    useFetcher,
+    useLoaderData,
+    useRevalidator,
+} from "@remix-run/react";
 import {
     ActionFunctionArgs,
     LoaderFunctionArgs,
@@ -16,12 +21,7 @@ import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { useToast } from "~/hooks/use-toast";
 import { requireUserSession } from "~/session";
-import { emitter } from "~/util/emitter";
-import {
-    deleteItem,
-    processItem,
-    savePrimaryInformation,
-} from "~/util/util.server";
+import { deleteItem, saveItem } from "~/util/util.server";
 
 export const meta: MetaFunction = () => {
     return [
@@ -47,11 +47,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Index() {
+    const { user } = useLoaderData<typeof loader>();
     const newItemEventMessage = useEventSource("/sse/save-item", {
         event: "new-item",
     });
+    const processingCompleteEvent = useEventSource("/sse/save-item", {
+        event: "processing-complete",
+    });
     const pasteRef = React.useRef<HTMLFormElement>(null);
     const formRef = React.useRef<HTMLFormElement>(null);
+    const { revalidate } = useRevalidator();
 
     const { toast } = useToast();
 
@@ -63,6 +68,7 @@ export default function Index() {
                 name="content"
                 intent="custom-input"
                 key="input-card"
+                user={user}
             />
         ),
         []
@@ -133,10 +139,7 @@ export default function Index() {
 
     React.useEffect(() => {
         if (pasteFetcher.state === "submitting") {
-            setStaticItems([
-                defaultStaticItem,
-                <InProgressCard key="in-progress" />,
-            ]);
+            setStaticItems([defaultStaticItem]);
         }
         if (pasteFetcher.state === "loading") {
             setStaticItems([defaultStaticItem]);
@@ -145,15 +148,49 @@ export default function Index() {
 
     React.useEffect(() => {
         if (customInputFetcher.state === "submitting") {
-            setStaticItems([
-                defaultStaticItem,
-                <InProgressCard key="in-progress" />,
-            ]);
+            setStaticItems([defaultStaticItem]);
         }
         if (customInputFetcher.state === "loading") {
             setStaticItems([defaultStaticItem]);
         }
     }, [customInputFetcher.state, defaultStaticItem]);
+
+    // Revalidate data when processing completes
+    React.useEffect(() => {
+        if (processingCompleteEvent) {
+            try {
+                const data = JSON.parse(processingCompleteEvent) as {
+                    id: string;
+                    success: boolean;
+                    message: string;
+                };
+                console.log(
+                    "Processing complete in index, refreshing data:",
+                    data
+                );
+
+                // Add a small delay to ensure the database has been updated
+                setTimeout(() => {
+                    revalidate();
+                    if (data.success) {
+                        toast({
+                            title: "Processing Complete",
+                            description: data.message,
+                            variant: "default",
+                        });
+                    } else {
+                        toast({
+                            title: "Processing Failed",
+                            description: data.message,
+                            variant: "destructive",
+                        });
+                    }
+                }, 500);
+            } catch (e) {
+                console.error("Failed to parse processing-complete event:", e);
+            }
+        }
+    }, [processingCompleteEvent, revalidate, toast]);
 
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
         event.preventDefault();
@@ -216,14 +253,13 @@ export default function Index() {
     );
 
     return (
-        <div className="p-4 md:p-8 pt-2 md:pt-6">
-            <div onPaste={handlePaste}>
-                <pasteFetcher.Form ref={pasteRef}>
-                    <input type="hidden" name="pastedContent" />
-                    <input type="hidden" name="intent" value="paste" />
-                </pasteFetcher.Form>
-                <div className="min-h-screen">{list}</div>
-            </div>
+        <div className="px-4 md:px-6 pb-6 pt-2 md:pt-6" onPaste={handlePaste}>
+            <InProgressCard />
+            <div className="min-h-screen">{list}</div>
+            <pasteFetcher.Form ref={pasteRef}>
+                <input type="hidden" name="pastedContent" />
+                <input type="hidden" name="intent" value="paste" />
+            </pasteFetcher.Form>
         </div>
     );
 }
@@ -251,83 +287,16 @@ export async function action({ request }: ActionFunctionArgs) {
         }
 
         const content = formData.get("pastedContent");
-        try {
-            if (content) {
-                console.log("saving primary information");
-                const savedItemInfo = await savePrimaryInformation(
-                    content.toString(),
-                    user
-                );
-
-                emitter.emit("new-item", savedItemInfo?.id);
-
-                if (savedItemInfo?.id) {
-                    processItem(savedItemInfo?.id, user);
-                    return {
-                        success: true,
-                        message: "Item saved successfully!",
-                        data: savedItemInfo,
-                    };
-                }
-
-                return {
-                    success: false,
-                    message: "Item could not be saved",
-                    content,
-                };
-            }
-        } catch (error) {
-            console.log("failed to save item from paste", error);
-            return {
-                success: false,
-                message: "Item could not be saved",
-                content,
-            };
+        if (content) {
+            return saveItem(content.toString(), user);
         }
     }
 
     if (intent === "custom-input") {
-        const title = formData.get("title");
         const content = formData.get("content");
 
-        try {
-            if (content) {
-                const savedItemInfo = await savePrimaryInformation(
-                    content.toString(),
-                    user
-                );
-
-                emitter.emit("new-item", savedItemInfo?.id);
-
-                if (savedItemInfo?.id) {
-                    console.log("emitting new item", savedItemInfo);
-
-                    processItem(savedItemInfo?.id ?? "", user);
-
-                    return {
-                        success: true,
-                        message: "Item saved successfully!",
-                        data: savedItemInfo,
-                        content,
-                        title,
-                    };
-                }
-
-                return {
-                    success: false,
-                    message: "Item could not be saved",
-                    content,
-                    title,
-                };
-            }
-        } catch (error) {
-            console.log("failed to save item from custom input", error);
-            return {
-                success: false,
-                message: "Item could not be saved",
-                content,
-                title,
-            };
+        if (content) {
+            return saveItem(content.toString(), user);
         }
     }
 

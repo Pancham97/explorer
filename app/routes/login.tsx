@@ -40,7 +40,7 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function Login() {
     return (
         <div className="items-center flex h-screen justify-center flex-col">
-            <h1 className="text-2xl font-bold">Login</h1>
+            <h1 className="text-2xl font-bold mb-6">Welcome to Sunchay</h1>
             <Form method="post">
                 <button type="submit" name="provider" value="google">
                     Login with Google

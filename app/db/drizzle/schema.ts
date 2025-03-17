@@ -1,14 +1,17 @@
 import {
+    singlestoreTable,
+    singlestoreSchema,
+    AnySingleStoreColumn,
+    primaryKey,
+    varchar,
+    text,
+    singlestoreEnum,
+    tinyint,
+    timestamp,
     date,
     json,
-    primaryKey,
-    singlestoreEnum,
-    singlestoreTable,
-    text,
-    timestamp,
-    tinyint,
-    varchar,
 } from "drizzle-orm/singlestore-core";
+import { sql } from "drizzle-orm";
 
 export const item = singlestoreTable(
     "item",
@@ -32,16 +35,14 @@ export const item = singlestoreTable(
     (table) => [primaryKey({ columns: [table.id], name: "item_id" })]
 );
 
-export const provider = singlestoreTable(
-    "provider",
+export const metadata = singlestoreTable(
+    "metadata",
     {
         id: varchar({ length: 255 }).notNull(),
-        userId: varchar("user_id", { length: 255 }).notNull(),
-        provider: varchar({ length: 255 }).notNull(),
-        createdAt: timestamp("created_at", { mode: "string" }).notNull(),
-        updatedAt: timestamp("updated_at", { mode: "string" }).notNull(),
+        strippedUrl: varchar({ length: 4096 }).notNull(),
+        metadata: json(),
     },
-    (table) => [primaryKey({ columns: [table.id], name: "provider_id" })]
+    (table) => [primaryKey({ columns: [table.id], name: "metadata_id" })]
 );
 
 export const screenshot = singlestoreTable(
@@ -67,6 +68,7 @@ export const usersTable = singlestoreTable(
         createdAt: timestamp("created_at", { mode: "string" }).notNull(),
         updatedAt: timestamp("updated_at", { mode: "string" }).notNull(),
         userName: varchar("user_name", { length: 255 }),
+        source: varchar({ length: 255 }),
     },
     (table) => [primaryKey({ columns: [table.id], name: "users_table_id" })]
 );

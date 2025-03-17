@@ -2,7 +2,7 @@ import { useFetcher } from "@remix-run/react";
 import React from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-
+import { User } from "~/session";
 function useGetCurrentOS() {
     const [isMac, setIsMac] = React.useState(false);
     const [isWin, setIsWin] = React.useState(false);
@@ -28,11 +28,13 @@ export const EnhancedInputCard = ({
     name = "content",
     formRef,
     intent,
+    user,
 }: {
     formError: string;
     formRef: React.RefObject<HTMLFormElement>;
     name: string;
     intent: string;
+    user: Nullable<User>;
 }) => {
     const fetcher = useFetcher<{
         success: boolean;
@@ -98,13 +100,15 @@ export const EnhancedInputCard = ({
                     <textarea
                         ref={textAreaRef}
                         name={name}
-                        placeholder="What's on your mind?"
+                        placeholder={`What's on your mind, ${
+                            user?.firstName ?? "there"
+                        }?`}
                         aria-label="Content input"
                         aria-invalid={Boolean(formError)}
                         aria-errormessage={
                             formError ? "content-error" : undefined
                         }
-                        className={`w-full p-4 bg-transparent border-none resize-none focus:outline-none min-h-[200px] h-auto ${
+                        className={`w-full p-4 bg-transparent border-none resize-none focus:outline-none min-h-[200px] h-auto placeholder:font-serif placeholder:text-xl ${
                             isSubmitting ? "opacity-50 cursor-not-allowed" : ""
                         }`}
                         disabled={isSubmitting}

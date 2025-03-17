@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { unescape } from "html-escaper";
 import ogs from "open-graph-scraper";
 import { OgObject, OpenGraphScraperOptions } from "open-graph-scraper/types";
@@ -6,7 +6,10 @@ import { ulid } from "ulid";
 import UserAgents from "user-agents";
 import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
+import { metadata as metadataTable } from "~/db/schema/metadata";
 import { User } from "~/session";
+import { emitter } from "~/util/emitter";
+import metascraper from "metascraper";
 
 type Metadata = {
     lang: Nullable<string>;
@@ -24,7 +27,7 @@ type OGResponse = {
     metadata?: Metadata;
 };
 
-const DEFAULT_DB_VALUES = {
+const DEFAULT_DB_VALUES: Partial<typeof itemTable.$inferInsert> = {
     createdAt: new Date(),
     lastAccessedAt: new Date(),
     updatedAt: new Date(),
@@ -37,6 +40,42 @@ const DEFAULT_DB_VALUES = {
     title: "",
     type: "text" as const,
     url: "",
+};
+
+/**
+ * Keep this method in sync with the one in the metadata service
+ */
+const stripURL = (url: string) => {
+    try {
+        // Parse the URL
+        const urlObj = new URL(url);
+
+        // List of parameters to remove
+        const paramsToRemove = [
+            "utm_source",
+            "utm_medium",
+            "utm_campaign",
+            "utm_term",
+            "utm_content",
+            "fbclid",
+            "gclid",
+            "_ga",
+            "ref",
+            "source",
+        ];
+
+        // Remove specified parameters
+        paramsToRemove.forEach((param) => {
+            urlObj.searchParams.delete(param);
+        });
+
+        // If no search params left, remove the trailing '?'
+        const cleanedUrl = urlObj.toString();
+        return cleanedUrl.endsWith("?") ? cleanedUrl.slice(0, -1) : cleanedUrl;
+    } catch (error) {
+        console.error("Invalid URL:", error);
+        return url; // Return original URL if parsing fails
+    }
 };
 
 function convertToUTF8(input: string) {
@@ -142,10 +181,12 @@ export function prepareUrl(relativePath: Maybe<string>, requestUrl: string) {
 }
 
 export async function savePrimaryInformation(content: string, user: User) {
-    const itemData = {
+    const itemData: Partial<typeof itemTable.$inferInsert> = {
         ...DEFAULT_DB_VALUES,
         content,
+        url: isURL(content) ? content : "",
         userId: user.id,
+        type: isURL(content) ? "url" : "text",
     };
 
     return db.transaction(async (tx) => {
@@ -153,9 +194,15 @@ export async function savePrimaryInformation(content: string, user: User) {
             .select()
             .from(itemTable)
             .where(
-                and(
-                    eq(itemTable.content, content),
-                    eq(itemTable.userId, user.id)
+                or(
+                    and(
+                        eq(itemTable.content, content),
+                        eq(itemTable.userId, user.id)
+                    ),
+                    and(
+                        eq(itemTable.url, content),
+                        eq(itemTable.userId, user.id)
+                    )
                 )
             )
             .limit(1);
@@ -170,6 +217,7 @@ export async function savePrimaryInformation(content: string, user: User) {
         }
 
         const id = ulid();
+        console.log("{ ...itemData, id }", { ...itemData, id });
         await tx.insert(itemTable).values({ ...itemData, id });
         return { id };
     });
@@ -186,13 +234,127 @@ export async function processItem(id: string, user: User) {
         return null;
     }
 
+    // Emit processing start event with item type
+    emitter.emit("processing-start", { id: item.id, itemType: item.type });
+
     if (item.type === "file") {
+        // Handle file processing here
+        emitter.emit("processing-update", {
+            id: item.id,
+            message: "Processing file content...",
+        });
+
+        // After file processing logic
+        emitter.emit("processing-complete", {
+            id: item.id,
+            success: true,
+            message: "File processing completed",
+        });
+
         return null;
-    } else if (item.content && isURL(item.content)) {
-        return await processURLItem(item, user);
+    } else if (item.url && isURL(item.url)) {
+        // Emit update for URL processing
+        emitter.emit("processing-update", {
+            id: item.id,
+            message: "Fetching URL metadata...",
+        });
+
+        // check if the stripped URL exists in the `metadata` table if it does,
+        // then update the item with the new metadata if it doesn't, then create
+        // a new item with the new metadata by processing the URL
+        const existingMetadata = await db
+            .select()
+            .from(metadataTable)
+            .where(eq(metadataTable.strippedUrl, stripURL(item.url)));
+
+        if (existingMetadata[0]?.metadata) {
+            emitter.emit("processing-update", {
+                id: item.id,
+                message: "Using cached metadata...",
+            });
+
+            const { image, title, author, lang, publisher, description, logo } =
+                existingMetadata[0].metadata as metascraper.Metadata;
+
+            console.log("existing metadata", {
+                title: getTitle(title),
+                author,
+                lang,
+                publisher,
+                description: getDescription(description),
+            });
+
+            const result = await db
+                .update(itemTable)
+                .set({
+                    description: getDescription(description),
+                    faviconUrl: logo?.slice(0, 255),
+                    metadata: {
+                        ...existingMetadata[0].metadata,
+                        title: getTitle(title),
+                    },
+                    thumbnailUrl: image?.slice(0, 4096),
+                    title: getTitle(title),
+                    url: item.content,
+                    tags: {
+                        author,
+                        lang,
+                        publisher,
+                    },
+                    updatedAt: new Date(),
+                })
+                .where(
+                    and(
+                        eq(itemTable.id, item.id),
+                        eq(itemTable.userId, user.id)
+                    )
+                )
+                .$dynamic();
+
+            emitter.emit("processing-complete", {
+                id: item.id,
+                success: true,
+                message: "URL metadata processed successfully",
+            });
+
+            return result;
+        } else {
+            // Emit update for new URL metadata processing
+            emitter.emit("processing-update", {
+                id: item.id,
+                message: "Fetching and processing URL metadata...",
+            });
+
+            // create a new item with the new metadata by processing the URL
+            const result = await processURLItem(item, user);
+
+            emitter.emit("processing-complete", {
+                id: item.id,
+                success: !!result,
+                message: result
+                    ? "URL processed successfully"
+                    : "Failed to process URL",
+            });
+
+            return result;
+        }
     }
 
-    return await processTextItem(item, user);
+    // For text items
+    emitter.emit("processing-update", {
+        id: item.id,
+        message: "Processing text content...",
+    });
+
+    const result = await processTextItem(item, user);
+
+    emitter.emit("processing-complete", {
+        id: item.id,
+        success: !!result,
+        message: "Text content processed successfully",
+    });
+
+    return result;
 }
 
 export async function deleteItem(itemId: string, user: User) {
@@ -203,39 +365,85 @@ export async function deleteItem(itemId: string, user: User) {
 }
 
 async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
-    if (!item.content) {
+    if (!item.url) {
+        emitter.emit("processing-complete", {
+            id: item.id,
+            success: false,
+            message: "No URL provided for processing",
+        });
         return null;
     }
 
-    const { openGraphData, metadata } = await getOpenGraphData(
-        new URL(item.content)
-    );
+    emitter.emit("processing-update", {
+        id: item.id,
+        message: "Fetching URL metadata from service...",
+    });
 
-    if (!metadata && !openGraphData) {
+    // const { openGraphData, metadata } = await getOpenGraphData(
+    //     new URL(item.content)
+    // );
+
+    try {
+        const { metadata }: { metadata: metascraper.Metadata } = await fetch(
+            process.env.NODE_ENV === "production"
+                ? // "https://fetcher.sunchay.com/fetch-metadata",
+                  "https://fetcher.sunchay.com/fetch-metadata"
+                : "http://localhost:3000/fetch-metadata",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    url: item.url,
+                }),
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }
+        ).then((res) => res.json());
+
+        if (!metadata) {
+            emitter.emit("processing-complete", {
+                id: item.id,
+                success: false,
+                message: "Failed to fetch metadata for URL",
+            });
+            return null;
+        }
+
+        emitter.emit("processing-update", {
+            id: item.id,
+            message: "Updating item with URL metadata...",
+            progress: 80,
+        });
+
+        console.log("metadata -<<<<>>>>>", metadata);
+
+        return await db
+            .update(itemTable)
+            .set({
+                content: getDescription(metadata.description),
+                description: getDescription(metadata.description),
+                faviconUrl: prepareUrl(metadata.logo, metadata.url || ""),
+                metadata,
+                tags: {},
+                thumbnailUrl: metadata.image,
+                title: getTitle(metadata.title),
+                updatedAt: new Date(),
+                url: item.url,
+            })
+            .where(
+                and(eq(itemTable.id, item.id), eq(itemTable.userId, user.id))
+            )
+            .$dynamic();
+    } catch (error) {
+        console.error("Error processing URL", error);
+        emitter.emit("processing-complete", {
+            id: item.id,
+            success: false,
+            message: "Error fetching URL metadata",
+        });
         return null;
     }
-
-    console.log("metadata -<<<<>>>>>", metadata);
-
-    return await db
-        .update(itemTable)
-        .set({
-            content: getDescription(metadata, openGraphData),
-            description: getDescription(metadata, openGraphData),
-            faviconUrl: prepareUrl(
-                openGraphData?.favicon,
-                openGraphData?.ogUrl || openGraphData?.requestUrl || ""
-            ),
-            metadata: getMetadata(metadata, openGraphData),
-            tags: {},
-            thumbnailUrl: getThumbnail(metadata, openGraphData),
-            title: getTitle(item, metadata, openGraphData),
-            type: "url" as const,
-            updatedAt: new Date(),
-            url: item.content,
-        })
-        .where(and(eq(itemTable.id, item.id), eq(itemTable.userId, user.id)))
-        .$dynamic();
 }
 
 async function processTextItem(
@@ -257,43 +465,41 @@ async function processTextItem(
         .$dynamic();
 }
 
-function getTitle(
-    item: typeof itemTable.$inferSelect,
-    metadata?: Metadata,
-    ogData?: OgObject
-): string {
-    return convertToUTF8(
-        metadata?.title ||
-            ogData?.ogTitle ||
-            ogData?.twitterTitle ||
-            item.title ||
-            ""
-    ).slice(0, 360);
+function getTitle(title?: string): string {
+    return convertToUTF8(title || "").slice(0, 360);
 }
 
-function getDescription(metadata?: Metadata, ogData?: OgObject): string {
-    return convertToUTF8(
-        metadata?.description ||
-            ogData?.ogDescription ||
-            ogData?.twitterDescription ||
-            ""
-    ).slice(0, 360);
+function getDescription(description?: string): string {
+    return convertToUTF8(description || "").slice(0, 360);
 }
 
-function getThumbnail(metadata?: Metadata, ogData?: OgObject): string {
-    return prepareUrl(
-        metadata?.image ||
-            ogData?.ogImage?.[0]?.url ||
-            ogData?.twitterImage?.[0]?.url ||
-            "",
-        ogData?.requestUrl || ogData?.ogUrl || ""
-    );
-}
+export const saveItem = async (content: string, user: User) => {
+    try {
+        console.log("saving primary information");
+        const savedItemInfo = await savePrimaryInformation(content, user);
 
-function getMetadata(metadata?: Metadata, ogData?: OgObject) {
-    return {
-        ...metadata,
-        ...ogData,
-        customMetaTags: ogData?.customMetaTags || [],
-    };
-}
+        emitter.emit("new-item", savedItemInfo?.id);
+
+        if (savedItemInfo?.id) {
+            processItem(savedItemInfo?.id, user);
+            return {
+                success: true,
+                message: "Item saved successfully!",
+                data: savedItemInfo,
+            };
+        }
+
+        return {
+            success: false,
+            message: "Item could not be saved",
+            content,
+        };
+    } catch (error) {
+        console.log("failed to save item from paste", error);
+        return {
+            success: false,
+            message: "Item could not be saved",
+            content,
+        };
+    }
+};

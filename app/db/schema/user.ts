@@ -22,6 +22,7 @@ export const usersTable = singlestoreTable(
         createdAt: timestamp("created_at", { mode: "date" }).notNull(),
         updatedAt: timestamp("updated_at", { mode: "date" }).notNull(),
         userName: varchar("user_name", { length: 255 }),
+        source: varchar("source", { length: 255 }),
     },
     (table) => [primaryKey({ columns: [table.id], name: "users_table_id" })]
 );

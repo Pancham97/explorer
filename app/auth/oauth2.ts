@@ -7,9 +7,8 @@ import { db } from "~/db/db.server";
 import { sessionStorage, User } from "~/session";
 import { usersTable } from "~/db/schema/user";
 import { ulid } from "ulid";
-import { timestamp } from "drizzle-orm/singlestore-core";
 import { and, eq } from "drizzle-orm";
-import { providersTable } from "~/db/schema/provider";
+import { uploadImageToS3 } from "~/util/aws";
 
 const BASE_URL =
     process.env.NODE_ENV === "production"
@@ -18,16 +17,12 @@ const BASE_URL =
 
 async function getUser(email: string, loginProvider: string) {
     return await db
-        .select({
-            user: usersTable,
-            provider: providersTable,
-        })
+        .select()
         .from(usersTable)
-        .innerJoin(providersTable, eq(usersTable.id, providersTable.userId))
         .where(
             and(
                 eq(usersTable.email, email),
-                eq(providersTable.provider, loginProvider)
+                eq(usersTable.source, loginProvider)
             )
         );
 }
@@ -45,16 +40,10 @@ async function fetchUser(
         return null;
     }
 
-    const providers = await db
-        .select()
-        .from(providersTable)
-        .where(eq(providersTable.userId, users[0].id));
-    const provider = providers[0];
-
     return {
         ...users[0],
         userName: users[0].userName ?? undefined,
-        loginProvider: provider.provider,
+        loginProvider: users[0].source ?? "",
         accessToken,
     };
 }
@@ -65,14 +54,6 @@ async function storeUserInDatabaseIfNotExists(user: User) {
     if (existingUsers.length > 0) {
         return existingUsers[0];
     }
-
-    await db.insert(providersTable).values({
-        id: ulid(),
-        userId: user.id,
-        provider: user.loginProvider,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    });
 
     return await db.insert(usersTable).values({
         ...user,
@@ -121,15 +102,20 @@ export const googleStrategy = new OAuth2Strategy(
             };
         }
 
+        const userId = ulid();
         const user = {
-            id: ulid(),
+            id: userId,
             accessToken: tokens.accessToken(),
-            avatarUrl: decodedToken.picture,
+            avatarUrl: await uploadImageToS3(
+                decodedToken.picture,
+                `public/avatars/${userId}.webp`
+            ),
             email: decodedToken.email,
             firstName: decodedToken.name.split(" ")[0],
             lastName: decodedToken.name.split(" ")[1],
             loginProvider: "google",
             userName: decodedToken.name,
+            source: "google",
         };
 
         await storeUserInDatabaseIfNotExists(user);
@@ -178,15 +164,20 @@ export const githubStrategy = new OAuth2Strategy(
             };
         }
 
+        const userId = ulid();
         const user = {
-            id: ulid(),
+            id: userId,
             email: responseJson.email,
             firstName: responseJson.name.split(" ")[0],
             lastName: responseJson.name.split(" ")[1],
-            avatarUrl: responseJson.avatar_url,
+            avatarUrl: await uploadImageToS3(
+                responseJson.avatar_url,
+                `public/avatars/${userId}.webp`
+            ),
             accessToken: tokens.accessToken(),
             loginProvider: "github",
             userName: responseJson.login,
+            source: "github",
         };
 
         await storeUserInDatabaseIfNotExists(user);

@@ -1,7 +1,6 @@
 package models
 
 import (
-	"log"
 	"time"
 
 	"fmt"
@@ -132,7 +131,8 @@ func GetMetadata(itemID ulid.ULID) (interface{}, error) {
 	if fetchedItem.Type == URLType {
 		metadata, err := util.FetchMetadata(fetchedItem.Content)
 		if err != nil {
-			log.Fatalf("Failed to fetch metadata: %v", err)
+			fmt.Printf("Failed to fetch metadata: %v\n", err)
+			return nil, err
 		}
 
 		fmt.Println("metadata", metadata)

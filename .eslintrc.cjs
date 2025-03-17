@@ -13,6 +13,7 @@ module.exports = {
         ecmaFeatures: {
             jsx: true,
         },
+        project: "./tsconfig.json",
     },
     env: {
         browser: true,
@@ -45,7 +46,9 @@ module.exports = {
                     { name: "NavLink", linkAttribute: "to" },
                 ],
                 "import/resolver": {
-                    typescript: {},
+                    typescript: {
+                        project: "./tsconfig.json",
+                    },
                 },
             },
         },
@@ -55,6 +58,9 @@ module.exports = {
             files: ["**/*.{ts,tsx}"],
             plugins: ["@typescript-eslint", "import"],
             parser: "@typescript-eslint/parser",
+            parserOptions: {
+                project: "./tsconfig.json",
+            },
             settings: {
                 "import/internal-regex": "^~/",
                 "import/resolver": {
@@ -63,6 +69,9 @@ module.exports = {
                     },
                     typescript: {
                         alwaysTryTypes: true,
+                        project: "./tsconfig.json",
+                        tsconfigRootDir: "./",
+                        pathsToResolve: require("./.eslintrc-paths"),
                     },
                 },
             },

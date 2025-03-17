@@ -8,3 +8,11 @@ frontend-start:
 
 build-frontend:
 	npm run build
+
+backend-start:
+	cd backend && go run .
+
+backend-build:
+	cd backend && go build -o backend .
+
+
