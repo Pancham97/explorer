@@ -72,7 +72,7 @@ export default function OneOff() {
     const faviconFetcher = useFetcher({ key: "update-favicons" });
     const thumbnailFetcher = useFetcher({ key: "update-thumbnail-urls" });
 
-    if (!user) {
+    if (!user || user.email !== "talktopancham@gmail.com") {
         return <div>You must be logged in to do this.</div>;
     }
 

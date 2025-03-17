@@ -80,17 +80,18 @@ export const ContentCard = ({
                     {content}
                 </CardContent>
             );
-        } else if (type === "url") {
+        } else if (type === "url" && url && url.length > 0) {
             let thumbnailImage;
             if (thumbnailUrl) {
                 thumbnailImage = (
                     <img
                         src={thumbnailUrl}
                         alt={title || ""}
-                        className="w-full h-auto object-cover rounded-md"
+                        className="w-full h-auto object-cover rounded-sm"
                     />
                 );
             }
+
             cardContent = (
                 <CardContent className="p-0">
                     {thumbnailImage}
@@ -101,7 +102,7 @@ export const ContentCard = ({
                         onClick={(e) => e.stopPropagation()}
                         className="absolute bottom-1 right-1 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm"
                     >
-                        {getDomainFromUrl(url || "")}
+                        {getDomainFromUrl(url)}
                         <ArrowUpRight />
                     </Link>
                 </CardContent>
@@ -146,7 +147,6 @@ export const ContentCard = ({
                                     )}
                                 </CardHeader>
                             ) : null}
-
                             {cardContent}
                         </Card>
                     </DialogTrigger>
