@@ -47,7 +47,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Index() {
-    const { user } = useLoaderData<typeof loader>();
+    const { user, items } = useLoaderData<typeof loader>();
     const newItemEventMessage = useEventSource("/sse/save-item", {
         event: "new-item",
     });
@@ -77,8 +77,6 @@ export default function Index() {
     if (newItemEventMessage) {
         console.log("newItemEventMessage", newItemEventMessage);
     }
-
-    const { items } = useLoaderData<typeof loader>();
 
     const [staticItems, setStaticItems] = React.useState<React.ReactNode[]>([
         defaultStaticItem,
@@ -240,6 +238,7 @@ export default function Index() {
     const list = (
         <MasonryGrid>
             {staticItems.map((item) => item)}
+            <InProgressCard />
             {itemsToShow.map((item) => (
                 <Motion key={item.id}>
                     <ContentCard
@@ -254,7 +253,6 @@ export default function Index() {
 
     return (
         <div className="px-4 md:px-6 pb-6 pt-2 md:pt-6" onPaste={handlePaste}>
-            <InProgressCard />
             <div className="min-h-screen">{list}</div>
             <pasteFetcher.Form ref={pasteRef}>
                 <input type="hidden" name="pastedContent" />

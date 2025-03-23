@@ -125,7 +125,7 @@ export function InProgressCard() {
                             return updated;
                         });
                     },
-                    data.success ? 3000 : 5000
+                    data.success ? 1000 : 5000
                 ); // Show success messages for 3s, errors for 5s
             } catch (e) {
                 console.error("Failed to parse processing-complete event:", e);
@@ -149,16 +149,11 @@ export function InProgressCard() {
                 ) : (
                     Object.values(processingItems).map((item) => (
                         <div key={item.id} className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                                {item.success === undefined ? (
-                                    <Loader2 className="h-5 w-5 animate-spin" />
-                                ) : item.success ? (
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                ) : (
-                                    <XCircle className="h-5 w-5 text-red-500" />
-                                )}
-                                <p className="font-serif">{item.message}</p>
-                            </div>
+                            {/* <div className="flex items-center gap-2"> */}
+
+                            <Sun className="h-8 w-8" aria-hidden="true" />
+                            <p className="font-serif">{item.message}</p>
+                            {/* </div> */}
                         </div>
                     ))
                 )}
