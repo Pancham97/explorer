@@ -43,7 +43,7 @@ export const ContentCard = ({
     let copyMenuItem;
     if (type === "url" && url && url.length > 0) {
         copyMenuItem = (
-            <ContextMenuItem onClick={() => copyToClipboard(url || "")}>
+            <ContextMenuItem onClick={() => copyToClipboard(url.trim() || "")}>
                 Copy URL
             </ContextMenuItem>
         );
@@ -112,7 +112,9 @@ export const ContentCard = ({
         let copyContentMenuItem;
         if (type === "url" && url && url.length > 0) {
             copyContentMenuItem = (
-                <DropdownMenuItem onClick={() => copyToClipboard(url || "")}>
+                <DropdownMenuItem
+                    onClick={() => copyToClipboard(url.trim() || "")}
+                >
                     Copy URL
                 </DropdownMenuItem>
             );
