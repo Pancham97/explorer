@@ -64,6 +64,7 @@ export function InnerLayout({
     user: Maybe<User>;
 }) {
     const [theme] = useTheme();
+    const nonce = crypto.randomUUID();
 
     return (
         <html lang="en" className={clsx(theme)} data-theme={theme}>
@@ -75,7 +76,6 @@ export function InnerLayout({
                 />
                 <Meta />
 
-                <PreventFlashOnWrongTheme ssrTheme={ssrTheme} />
                 <Links />
             </head>
             <body>
@@ -83,6 +83,7 @@ export function InnerLayout({
                 {children}
                 <Toaster />
                 <ScrollRestoration />
+                <PreventFlashOnWrongTheme ssrTheme={ssrTheme} nonce={nonce} />
                 <Scripts />
                 <Analytics />
             </body>

@@ -73,7 +73,8 @@ const stripURL = (url: string) => {
         const cleanedUrl = urlObj.toString();
         return cleanedUrl.endsWith("?") ? cleanedUrl.slice(0, -1) : cleanedUrl;
     } catch (error) {
-        console.error("Invalid URL:", error);
+        console.error(url);
+        console.error("Invalid URL:", url, error);
         return url; // Return original URL if parsing fails
     }
 };

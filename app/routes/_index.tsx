@@ -231,23 +231,23 @@ export default function Index() {
         );
     };
 
-    const itemsToShow = items.filter(
-        (item) => deleteFetcher.formData?.get("itemId") !== item.id
-    );
-
     const list = (
         <MasonryGrid>
             {staticItems.map((item) => item)}
             <InProgressCard />
-            {itemsToShow.map((item) => (
-                <Motion key={item.id}>
-                    <ContentCard
-                        key={item.id}
-                        data={item}
-                        onDelete={handleDelete}
-                    />
-                </Motion>
-            ))}
+            {items
+                .filter(
+                    (item) => deleteFetcher.formData?.get("itemId") !== item.id
+                )
+                .map((item) => (
+                    <Motion key={item.id}>
+                        <ContentCard
+                            key={item.id}
+                            data={item}
+                            onDelete={handleDelete}
+                        />
+                    </Motion>
+                ))}
         </MasonryGrid>
     );
 

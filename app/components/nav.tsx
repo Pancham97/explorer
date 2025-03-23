@@ -15,6 +15,7 @@ import {
 import { User } from "~/session";
 import logo from "/logo.svg";
 import { useEventSource } from "remix-utils/sse/react";
+import { Badge } from "~/components/ui/badge";
 
 function getGreetingBasedOnTime() {
     const hour = new Date().getHours();
@@ -97,6 +98,7 @@ export default function Nav({ user }: { user: Maybe<User> }) {
             <Link to="/" className="flex items-center gap-2">
                 <img src={logo} alt="Sunchay app logo" className="w-10 h-10" />{" "}
                 <h1 className="text-2xl font-light font-serif">Sunchay</h1>
+                {process.env.NODE_ENV === "development" && <Badge>DEV</Badge>}
             </Link>
             {/* <Time /> */}
 
