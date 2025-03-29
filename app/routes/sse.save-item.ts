@@ -1,4 +1,4 @@
-import { LoaderFunctionArgs } from "@remix-run/cloudflare";
+import { LoaderFunctionArgs } from "@vercel/remix";
 import { eventStream } from "remix-utils/sse/server";
 import { emitter } from "~/util/emitter";
 

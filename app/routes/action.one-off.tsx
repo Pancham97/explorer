@@ -1,5 +1,5 @@
 import { useFetcher, useLoaderData } from "@remix-run/react";
-import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/cloudflare";
+import { ActionFunctionArgs, LoaderFunctionArgs } from "@vercel/remix";
 import { eq } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
 import { db } from "~/db/db.server";

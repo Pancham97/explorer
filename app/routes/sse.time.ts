@@ -1,6 +1,6 @@
 // app/routes/sse.time.ts
 
-import { LoaderFunctionArgs } from "@remix-run/cloudflare";
+import { LoaderFunctionArgs } from "@vercel/remix";
 import { eventStream } from "remix-utils/sse/server";
 
 export async function loader({ request }: LoaderFunctionArgs) {

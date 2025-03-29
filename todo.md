@@ -1,16 +1,9 @@
-# Mar 25, 2025
-
-- [ ] Fix the event source failure on production
-- [ ] Fix the content from being saved in place of URL
-- [ ] Fix the URL being saved in place of content
-- [ ] Reduce replica from 2 to 1, and max from 3 to 2
-
 # Mar 16, 2025
 
 - [X] Save logo / favicon to S3 as well and serve via CDN
 - [X] Add polling for metadata
-- [X] Deploy Docker image to ECR and deploy service to ECS
-- [X] Deploy the frontend to Vercel and check if the Docker image of metadata-fetcher is working
+- [ ] Deploy Docker image to ECR and deploy service to ECS
+- [ ] Deploy the frontend to Vercel and check if the Docker image of metadata-fetcher is working
 
 # 2025-02-09
 

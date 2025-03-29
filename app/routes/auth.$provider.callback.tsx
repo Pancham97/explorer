@@ -1,6 +1,6 @@
 // frontend/app/routes/auth.google.callback.tsx
 
-import { LoaderFunctionArgs } from "@remix-run/cloudflare";
+import { LoaderFunctionArgs } from "@vercel/remix";
 import { redirect } from "@remix-run/react";
 import { authenticator } from "~/auth/oauth2";
 import { sessionStorage } from "~/session";

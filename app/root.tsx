@@ -2,7 +2,7 @@ import type {
     ActionFunctionArgs,
     LinksFunction,
     LoaderFunctionArgs,
-} from "@remix-run/cloudflare";
+} from "@vercel/remix";
 import {
     Links,
     Meta,
@@ -11,6 +11,7 @@ import {
     ScrollRestoration,
     useRouteLoaderData,
 } from "@remix-run/react";
+import { Analytics } from "@vercel/analytics/react";
 import clsx from "clsx";
 import {
     PreventFlashOnWrongTheme,
@@ -83,6 +84,7 @@ export function InnerLayout({
                 <Toaster />
                 <ScrollRestoration />
                 <Scripts />
+                <Analytics />
             </body>
         </html>
     );

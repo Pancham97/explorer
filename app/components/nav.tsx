@@ -95,6 +95,7 @@ export default function Nav({ user }: { user: Maybe<User> }) {
     return (
         <div className="flex justify-between items-center p-4">
             <Link to="/" className="flex items-center gap-2">
+                <img src={logo} alt="Sunchay app logo" className="w-10 h-10" />{" "}
                 <h1 className="text-2xl font-light font-serif">Sunchay</h1>
             </Link>
             {/* <Time /> */}

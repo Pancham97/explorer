@@ -1,8 +1,6 @@
-import {
-    vitePlugin as remix,
-    cloudflareDevProxyVitePlugin as remixCloudflareDevProxy,
-} from "@remix-run/dev";
+import { vitePlugin as remix } from "@remix-run/dev";
 import { installGlobals } from "@remix-run/node";
+import { vercelPreset } from "@vercel/remix/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -19,7 +17,6 @@ export default defineConfig({
     //     host: "0.0.0.0",
     // },
     plugins: [
-        remixCloudflareDevProxy(),
         remix({
             future: {
                 v3_fetcherPersist: true,
@@ -28,6 +25,7 @@ export default defineConfig({
                 v3_singleFetch: true,
                 v3_lazyRouteDiscovery: true,
             },
+            presets: [vercelPreset()],
         }),
         tsconfigPaths(),
     ],
