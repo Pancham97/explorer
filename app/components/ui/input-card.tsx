@@ -23,7 +23,7 @@ const commandKeyIcon = "⌘";
 const enterKeyIcon = "↵";
 const ctrlKeyIcon = "Ctrl";
 
-export const EnhancedInputCard = ({
+export const InputCard = ({
     formError,
     name = "content",
     formRef,

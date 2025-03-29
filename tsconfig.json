@@ -10,7 +10,12 @@
     ],
     "compilerOptions": {
         "lib": ["DOM", "DOM.Iterable", "ES2022"],
-        "types": ["@vercel/remix", "node", "vite/client"],
+        "types": [
+            "@remix-run/cloudflare",
+            "vite/client",
+            "@cloudflare/workers-types/2023-07-01",
+            "node"
+        ],
         "isolatedModules": true,
         "esModuleInterop": true,
         "jsx": "react-jsx",

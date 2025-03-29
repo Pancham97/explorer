@@ -4,7 +4,7 @@ import {
     ActionFunctionArgs,
     LoaderFunctionArgs,
     redirect,
-} from "@vercel/remix";
+} from "@remix-run/cloudflare";
 import { Form } from "@remix-run/react";
 import { authenticator } from "~/auth/oauth2";
 import { sessionStorage } from "~/session";

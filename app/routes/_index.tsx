@@ -8,13 +8,13 @@ import {
     ActionFunctionArgs,
     LoaderFunctionArgs,
     type MetaFunction,
-} from "@vercel/remix";
+} from "@remix-run/cloudflare";
 import { desc, eq } from "drizzle-orm";
 import React from "react";
 import { useEventSource } from "remix-utils/sse/react";
 import { ContentCard } from "~/components/ui/content-card";
 import { InProgressCard } from "~/components/ui/in-progress-card";
-import { EnhancedInputCard } from "~/components/ui/input-card";
+import { InputCard } from "~/components/ui/input-card";
 import { MasonryGrid } from "~/components/ui/masonry-grid";
 import { Motion } from "~/components/ui/motion";
 import { db } from "~/db/db.server";
@@ -23,10 +23,27 @@ import { useToast } from "~/hooks/use-toast";
 import { requireUserSession } from "~/session";
 import { deleteItem, saveItem } from "~/util/util.server";
 
+type BaseFetcherData = {
+    success: boolean;
+    message: string;
+};
+
+type ContentFetcherData = BaseFetcherData & {
+    content: string;
+};
+
+type DeleteFetcherData = BaseFetcherData & {
+    itemId: string;
+};
+
 export const meta: MetaFunction = () => {
     return [
-        { title: "Sunchay | Save anything. Explore!" },
-        { name: "description", content: "Welcome to Sunchay!" },
+        { title: "Sunchay" },
+        {
+            name: "description",
+            content:
+                "Welcome to Sunchay! A place to save anything and explore it later.",
+        },
     ];
 };
 
@@ -34,20 +51,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const session = await requireUserSession(request);
     const user = session.get("user");
     if (!user) {
-        return { items: [], user: null };
+        return { savedItems: [], user: null };
     }
 
-    const items = await db
+    const savedItems = await db
         .select()
         .from(itemTable)
         .where(eq(itemTable.userId, user?.id ?? ""))
         .orderBy(desc(itemTable.updatedAt));
 
-    return data({ items, user });
+    return data({ savedItems, user });
 }
 
 export default function Index() {
-    const { user, items } = useLoaderData<typeof loader>();
+    const { user, savedItems } = useLoaderData<typeof loader>();
     const newItemEventMessage = useEventSource("/sse/save-item", {
         event: "new-item",
     });
@@ -60,72 +77,49 @@ export default function Index() {
 
     const { toast } = useToast();
 
-    const defaultStaticItem = React.useMemo(
-        () => (
-            <EnhancedInputCard
-                formRef={formRef}
-                formError=""
-                name="content"
-                intent="custom-input"
-                key="input-card"
-                user={user}
-            />
-        ),
-        []
-    );
-
     if (newItemEventMessage) {
         console.log("newItemEventMessage", newItemEventMessage);
     }
 
-    const [staticItems, setStaticItems] = React.useState<React.ReactNode[]>([
-        defaultStaticItem,
-    ]);
-
-    const pasteFetcher = useFetcher<{
-        success: boolean;
-        message: string;
-        content: string;
-    }>({ key: "paste-fetcher" });
-    const customInputFetcher = useFetcher<{
-        success: boolean;
-        message: string;
-        content: string;
-        title: string;
-    }>({ key: "input-card" });
-    const deleteFetcher = useFetcher<{
-        itemId: string;
-        success: boolean;
-        message: string;
-    }>({
+    const pasteFetcher = useFetcher<ContentFetcherData>({
+        key: "paste-fetcher",
+    });
+    const customInputFetcher = useFetcher<ContentFetcherData>({
+        key: "input-card",
+    });
+    const deleteFetcher = useFetcher<DeleteFetcherData>({
         key: "delete-fetcher",
     });
 
     React.useEffect(() => {
-        if (!deleteFetcher.data?.success && deleteFetcher.data?.itemId) {
+        const deleteError =
+            deleteFetcher.data?.success === false && deleteFetcher.data?.itemId;
+        if (deleteError) {
             toast({
                 title: deleteFetcher.data?.message,
-                description: "Please try again",
+                description: "Delete failed. Please try again.",
                 variant: "destructive",
             });
         }
     }, [deleteFetcher.data, toast]);
 
     React.useEffect(() => {
-        if (
-            !customInputFetcher.data?.success &&
-            customInputFetcher.data?.content
-        ) {
+        const customInputError =
+            customInputFetcher.data?.success === false &&
+            customInputFetcher.data?.content;
+        if (customInputError) {
             toast({
                 title: customInputFetcher.data?.message,
-                description: "Please try again",
+                description: "Custom input failed. Please try again.",
                 variant: "destructive",
             });
         }
     }, [customInputFetcher.data, toast]);
 
     React.useEffect(() => {
-        if (!pasteFetcher.data?.success && pasteFetcher.data?.content) {
+        const pasteError =
+            pasteFetcher.data?.success === false && pasteFetcher.data?.content;
+        if (pasteError) {
             toast({
                 title: pasteFetcher.data?.message,
                 description:
@@ -134,24 +128,6 @@ export default function Index() {
             });
         }
     }, [pasteFetcher.data, toast]);
-
-    React.useEffect(() => {
-        if (pasteFetcher.state === "submitting") {
-            setStaticItems([defaultStaticItem]);
-        }
-        if (pasteFetcher.state === "loading") {
-            setStaticItems([defaultStaticItem]);
-        }
-    }, [defaultStaticItem, pasteFetcher.data, pasteFetcher.state]);
-
-    React.useEffect(() => {
-        if (customInputFetcher.state === "submitting") {
-            setStaticItems([defaultStaticItem]);
-        }
-        if (customInputFetcher.state === "loading") {
-            setStaticItems([defaultStaticItem]);
-        }
-    }, [customInputFetcher.state, defaultStaticItem]);
 
     // Revalidate data when processing completes
     React.useEffect(() => {
@@ -231,15 +207,11 @@ export default function Index() {
         );
     };
 
-    const itemsToShow = items.filter(
-        (item) => deleteFetcher.formData?.get("itemId") !== item.id
-    );
-
-    const list = (
-        <MasonryGrid>
-            {staticItems.map((item) => item)}
-            <InProgressCard />
-            {itemsToShow.map((item) => (
+    let savedItemsCards;
+    if (savedItems.length > 0) {
+        savedItemsCards = savedItems
+            .filter((item) => deleteFetcher.formData?.get("itemId") !== item.id)
+            .map((item) => (
                 <Motion key={item.id}>
                     <ContentCard
                         key={item.id}
@@ -247,13 +219,26 @@ export default function Index() {
                         onDelete={handleDelete}
                     />
                 </Motion>
-            ))}
-        </MasonryGrid>
-    );
+            ));
+    }
 
     return (
-        <div className="px-4 md:px-6 pb-6 pt-2 md:pt-6" onPaste={handlePaste}>
-            <div className="min-h-screen">{list}</div>
+        <div
+            className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6"
+            onPaste={handlePaste}
+        >
+            <MasonryGrid>
+                <InputCard
+                    formRef={formRef}
+                    formError=""
+                    name="content"
+                    intent="custom-input"
+                    key="input-card"
+                    user={user}
+                />
+                <InProgressCard />
+                {savedItemsCards}
+            </MasonryGrid>
             <pasteFetcher.Form ref={pasteRef}>
                 <input type="hidden" name="pastedContent" />
                 <input type="hidden" name="intent" value="paste" />
@@ -273,59 +258,58 @@ export async function action({ request }: ActionFunctionArgs) {
     const formData = await request.formData();
     const intent = formData.get("intent");
 
-    if (intent === "paste") {
-        if (request.headers.get("Content-Type") === "multipart/form-data") {
-            const file = formData.get("pastedContent") as File;
+    console.log("intent", intent);
+    switch (intent) {
+        case "custom-input":
+            const typedContent = formData.get("content");
 
-            console.log("file", file.name, file.type, file.size);
-            return {
-                success: false,
-                message: "File could not be saved",
-            };
-        }
+            if (typedContent) {
+                return saveItem(typedContent.toString(), user);
+            }
 
-        const content = formData.get("pastedContent");
-        if (content) {
-            return saveItem(content.toString(), user);
-        }
-    }
+        case "paste":
+            if (request.headers.get("Content-Type") === "multipart/form-data") {
+                const file = formData.get("pastedContent") as File;
 
-    if (intent === "custom-input") {
-        const content = formData.get("content");
+                return {
+                    success: false,
+                    message: "File could not be saved",
+                };
+            }
 
-        if (content) {
-            return saveItem(content.toString(), user);
-        }
-    }
+            const pastedContent = formData.get("pastedContent");
+            if (pastedContent) {
+                return saveItem(pastedContent.toString(), user);
+            }
 
-    if (intent === "delete") {
-        const itemId = formData.get("itemId");
-        try {
-            if (itemId) {
-                const result = await deleteItem(itemId.toString(), user);
-                if (result && result[0].affectedRows > 0) {
+        case "delete":
+            const itemId = formData.get("itemId");
+            try {
+                if (itemId) {
+                    const result = await deleteItem(itemId.toString(), user);
+                    if (result && result[0].affectedRows > 0) {
+                        return {
+                            success: true,
+                            message: "Item deleted successfully!",
+                            data: result,
+                            itemId,
+                        };
+                    }
+
                     return {
-                        success: true,
-                        message: "Item deleted successfully!",
+                        success: false,
+                        message: "Item could not be deleted",
                         data: result,
                         itemId,
                     };
                 }
-
+            } catch (error) {
+                console.log("failed to delete item", error);
                 return {
                     success: false,
                     message: "Item could not be deleted",
-                    data: result,
                     itemId,
                 };
             }
-        } catch (error) {
-            console.log("failed to delete item", error);
-            return {
-                success: false,
-                message: "Item could not be deleted",
-                itemId,
-            };
-        }
     }
 }
