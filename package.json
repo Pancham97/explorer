@@ -85,12 +85,12 @@
         "tailwindcss": "^3.4.4",
         "typescript": "^5.1.6",
         "vite-tsconfig-paths": "^4.2.1",
-        "vite": "^6.0.0",
-        "wrangler": "^3.28.2"
+        "vite": "^6.0.0"
     },
     "overrides": {
         "react-router": "6.30.0",
-        "valibot": "^0.41.0"
+        "valibot": "^0.41.0",
+        "wrangler": "3.28.2"
     },
     "engines": {
         "node": ">=22.0.0"
