@@ -1,5 +1,5 @@
 // frontend/app/routes/dashboard.tsx
-import { LoaderFunctionArgs } from "@vercel/remix";
+import { LoaderFunctionArgs } from "@remix-run/cloudflare";
 import { useLoaderData } from "@remix-run/react";
 import { requireUserSession } from "~/session";
 

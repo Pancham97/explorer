@@ -1,7 +1,13 @@
 /frontend/node_modules
 /frontend/.env
+/.cache
+build
+/build
+
 node_modules
+
 .env
 .DS_Store
-build
 .vercel
+.dev.vars
+.wrangler

@@ -107,8 +107,34 @@ function convertToUTF8(input: string) {
     }
 }
 
-function isURL(url: string) {
-    return url.startsWith("http://") || url.startsWith("https://");
+function isURL(text: string) {
+    // Handle empty strings
+    if (!text || text.trim() === "") {
+        return false;
+    }
+
+    // Basic pattern check before attempting URL constructor
+    const urlPattern =
+        /^(https?:\/\/)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\/[^\s]*)?$/i;
+    if (!urlPattern.test(text)) {
+        return false;
+    }
+
+    // If the text doesn't have a protocol, add one for proper URL parsing
+    const textWithProtocol = text.match(/^https?:\/\//i)
+        ? text
+        : "https://" + text;
+
+    try {
+        new URL(textWithProtocol);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+export function isURLRelative(url: string) {
+    return !url.startsWith("http://") && !url.startsWith("https://");
 }
 
 export async function getOpenGraphData(requestUrl: URL): Promise<OGResponse> {
@@ -163,10 +189,6 @@ export async function getOpenGraphData(requestUrl: URL): Promise<OGResponse> {
     }
 }
 
-export function isURLRelative(url: string) {
-    return !url.startsWith("http://") && !url.startsWith("https://");
-}
-
 export function prepareUrl(relativePath: Maybe<string>, requestUrl: string) {
     if (!relativePath) return "";
     if (isURLRelative(relativePath)) {
@@ -181,10 +203,17 @@ export function prepareUrl(relativePath: Maybe<string>, requestUrl: string) {
 }
 
 export async function savePrimaryInformation(content: string, user: User) {
-    const itemData: Partial<typeof itemTable.$inferInsert> = {
+    const id = ulid();
+
+    console.log("primary information ->>>>", content, isURL(content));
+
+    const itemData: typeof itemTable.$inferInsert = {
         ...DEFAULT_DB_VALUES,
+        id,
         content,
         url: isURL(content) ? content : "",
+        createdAt: new Date(),
+        updatedAt: new Date(),
         userId: user.id,
         type: isURL(content) ? "url" : "text",
     };
@@ -215,10 +244,8 @@ export async function savePrimaryInformation(content: string, user: User) {
 
             return { id: existing[0].id };
         }
-
-        const id = ulid();
-        console.log("{ ...itemData, id }", { ...itemData, id });
-        await tx.insert(itemTable).values({ ...itemData, id });
+        console.log("saving item", itemData);
+        await tx.insert(itemTable).values(itemData);
         return { id };
     });
 }
@@ -253,6 +280,7 @@ export async function processItem(id: string, user: User) {
 
         return null;
     } else if (item.url && isURL(item.url)) {
+        console.log("processing URL", item.url);
         // Emit update for URL processing
         emitter.emit("processing-update", {
             id: item.id,
@@ -281,13 +309,14 @@ export async function processItem(id: string, user: User) {
                 .set({
                     description: getDescription(description),
                     faviconUrl: logo?.slice(0, 255),
+                    content: item.content,
                     metadata: {
                         ...existingMetadata[0].metadata,
                         title: getTitle(title),
                     },
                     thumbnailUrl: image?.slice(0, 4096),
                     title: getTitle(title),
-                    url: item.content,
+                    url: item.url,
                     tags: {
                         author,
                         lang,
@@ -378,10 +407,10 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
 
     try {
         const { metadata }: { metadata: metascraper.Metadata } = await fetch(
-            // process.env.NODE_ENV === "production"
-            // ? // "https://service.sunchay.com/fetch-metadata",
-            "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata",
-            // : "http://localhost:3000/fetch-metadata",
+            process.env.NODE_ENV === "production"
+                ? // "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata",
+                  "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata"
+                : "http://localhost:3000/fetch-metadata",
             {
                 method: "POST",
                 body: JSON.stringify({
@@ -476,34 +505,26 @@ function getDescription(description?: string): string {
     return convertToUTF8(description || "").slice(0, 360);
 }
 
-export const saveItem = async (content: string, user: User) => {
+export const saveItem = async (textContent: string, user: User) => {
     try {
         console.log("saving primary information");
-        const savedItemInfo = await savePrimaryInformation(content, user);
+        const savedItemInfo = await savePrimaryInformation(textContent, user);
         console.log("saved primary information", savedItemInfo);
 
-        emitter.emit("new-item", savedItemInfo?.id);
+        emitter.emit("new-item", savedItemInfo.id);
 
-        if (savedItemInfo?.id) {
-            processItem(savedItemInfo?.id, user);
-            return {
-                success: true,
-                message: "Item saved successfully!",
-                data: savedItemInfo,
-            };
-        }
-
+        processItem(savedItemInfo.id, user);
         return {
-            success: false,
-            message: "Item could not be saved",
-            content,
+            success: true,
+            message: "Item saved successfully!",
+            data: savedItemInfo,
         };
     } catch (error) {
         console.log("failed to save item from paste", error);
         return {
             success: false,
             message: "Item could not be saved",
-            content,
+            data: textContent,
         };
     }
 };
