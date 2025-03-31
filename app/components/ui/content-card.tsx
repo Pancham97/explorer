@@ -143,8 +143,14 @@ export const ContentCard = ({
                                         />
                                     )}
                                     {title && (
-                                        <CardTitle className="font-serif font-normal text-xl">
-                                            {title}
+                                        <CardTitle className="font-serif font-normal text-xl line-clamp-2">
+                                            {title ? (
+                                                <span
+                                                    dangerouslySetInnerHTML={{
+                                                        __html: title,
+                                                    }}
+                                                />
+                                            ) : null}
                                         </CardTitle>
                                     )}
                                 </CardHeader>
