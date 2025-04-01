@@ -6,16 +6,19 @@ import { User } from "~/session";
 function useGetCurrentOS() {
     const [isMac, setIsMac] = React.useState(false);
     const [isWin, setIsWin] = React.useState(false);
+    const [isLinux, setIsLinux] = React.useState(false);
 
     React.useEffect(() => {
         const isMac = navigator.userAgent.includes("Mac");
         const isWin = navigator.userAgent.includes("Win");
+        const isLinux = navigator.userAgent.includes("Linux");
 
         setIsMac(isMac);
         setIsWin(isWin);
+        setIsLinux(isLinux);
     }, []);
 
-    return { isMac, isWin };
+    return { isMac, isWin, isLinux };
 }
 
 // command key icon
@@ -49,7 +52,7 @@ export const InputCard = ({
     }>({ key: "paste-fetcher" });
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
     const [hasContent, setHasContent] = React.useState(false);
-    const { isMac, isWin } = useGetCurrentOS();
+    const { isMac, isWin, isLinux } = useGetCurrentOS();
     const isSubmitting = fetcher.state === "submitting";
 
     const getShortcutKey = () => {
@@ -90,7 +93,7 @@ export const InputCard = ({
     }, [fetcher.data, formRef, textAreaRef]);
 
     return (
-        <Card className="transition-all duration-200 ease-in-out hover:shadow-md break-inside-avoid mb-4 md:mb-6">
+        <Card className="transition-all duration-200 ease-in-out hover:shadow-md break-inside-avoid mb-2 md:mb-3 lg:mb-4">
             <CardContent className="p-0">
                 <fetcher.Form
                     method="post"
@@ -108,7 +111,7 @@ export const InputCard = ({
                         aria-errormessage={
                             formError ? "content-error" : undefined
                         }
-                        className={`w-full p-4 bg-transparent border-none resize-none focus:outline-none min-h-[200px] h-auto placeholder:font-serif placeholder:text-xl ${
+                        className={`w-full p-4 bg-transparent border-none resize-none focus:outline-none min-h-[200px] h-auto placeholder:font-serif placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl ${
                             isSubmitting ? "opacity-50 cursor-not-allowed" : ""
                         }`}
                         disabled={isSubmitting}
@@ -124,7 +127,9 @@ export const InputCard = ({
                         onKeyDown={(e) => {
                             if (
                                 (isMac && e.metaKey && e.key === "Enter") ||
-                                (isWin && e.ctrlKey && e.key === "Enter")
+                                ((isWin || isLinux) &&
+                                    e.ctrlKey &&
+                                    e.key === "Enter")
                             ) {
                                 e.preventDefault();
                                 fetcher.submit(formRef.current);

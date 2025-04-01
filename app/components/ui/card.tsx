@@ -10,9 +10,9 @@ const Card = React.forwardRef<
         ref={ref}
         className={cn(
             // "rounded-sm border bg-card text-card-foreground shadow-xl",
-            "rounded-sm border border-white/20 bg-card/20",
+            "rounded-sm border dark:border-white/20 bg-card/20",
             "backdrop-blur-lg backdrop-filter",
-            "shadow-glass", // Using the shadow-glass class from tailwind.css
+            // "shadow-glass", // Using the shadow-glass class from tailwind.css
             "transition-all hover:bg-card/30 hover:backdrop-blur-xl",
             className
         )}
