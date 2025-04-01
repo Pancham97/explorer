@@ -224,7 +224,7 @@ export default function Index() {
 
     return (
         <div
-            className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6"
+            className="min-h-screen px-2 md:px-3 lg:px-4 pb-2 md:pb-3 lg:pb-4 pt-2 md:pt-3 lg:pt-4"
             onPaste={handlePaste}
         >
             <MasonryGrid>

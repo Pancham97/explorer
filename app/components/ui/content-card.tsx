@@ -59,6 +59,10 @@ export const ContentCard = ({
     if (type === "file") {
         cardVariant = (
             <Card>
+                <div className="absolute inset-0 rounded-2xl pointer-events-none z-10">
+                    <div className="absolute top-0 left-0 w-full h-[30%] bg-white/20 rounded-t-2xl blur-[12px] opacity-30" />
+                </div>
+
                 <CardContent>
                     <img
                         src={thumbnailUrl || FALLBACK_THUMBNAIL}
@@ -143,7 +147,7 @@ export const ContentCard = ({
                                         />
                                     )}
                                     {title && (
-                                        <CardTitle className="font-serif font-normal text-xl line-clamp-2">
+                                        <CardTitle className="font-serif font-normal text-base md:text-lg lg:text-xl line-clamp-2">
                                             {title ? (
                                                 <span
                                                     dangerouslySetInnerHTML={{
@@ -191,7 +195,7 @@ export const ContentCard = ({
     return (
         <ContextMenu key={id}>
             <ContextMenuTrigger>
-                <div className={`break-inside-avoid mb-4 md:mb-6`}>
+                <div className={`break-inside-avoid mb-2 md:mb-3 lg:mb-4`}>
                     {cardVariant}
                 </div>
             </ContextMenuTrigger>

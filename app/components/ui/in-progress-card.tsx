@@ -139,7 +139,7 @@ export function InProgressCard() {
     }
 
     return (
-        <div className="bg-gradient-to-tr from-pink-300 to-blue-300 p-1 shadow-lg rounded-md mb-4 md:mb-6 motion-safe:animate-soft-pulse">
+        <div className="bg-gradient-to-tr from-pink-300 to-blue-300 p-1 shadow-lg rounded-md mb-2 md:mb-3 lg:mb-4 motion-safe:animate-soft-pulse">
             <div className="bg-white dark:bg-zinc-800 rounded-sm p-6 flex flex-col gap-4">
                 {Object.values(processingItems).length === 0 ? (
                     <>

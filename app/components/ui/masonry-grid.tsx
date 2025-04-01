@@ -58,7 +58,7 @@ export const MasonryGrid: React.FC<MasonryGridProps> = ({ children }) => {
     }, [children, numberOfColumns]);
 
     return (
-        <div className="gap-6 columns-2 lg:columns-3 xl:columns-4 min-[1920px]:columns-6 min-[2560px]:columns-8 min-[3200px]:columns-10">
+        <div className="gap-2 md:gap-3 lg:gap-4 columns-2 lg:columns-3 xl:columns-4 min-[1920px]:columns-6 min-[2560px]:columns-8 min-[3200px]:columns-10">
             <AnimatePresence mode="popLayout">
                 {grid.map((child, index) => (
                     <div className="break-inside-avoid" key={index}>
