@@ -407,10 +407,10 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
 
     try {
         const { metadata }: { metadata: metascraper.Metadata } = await fetch(
-            process.env.NODE_ENV === "production"
-                ? // "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata",
-                  "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata"
-                : "http://localhost:3000/fetch-metadata",
+            // process.env.NODE_ENV === "production"
+            // ? // "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata",
+            "https://fetcher.sunchay.com/fetch-metadata",
+            // : "http://localhost:3000/fetch-metadata",
             {
                 method: "POST",
                 body: JSON.stringify({

@@ -1,5 +1,5 @@
 import { Link } from "@remix-run/react";
-import { ArrowUpRight, ChevronDown } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Play } from "lucide-react";
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
@@ -35,7 +35,7 @@ type ContentCardProps = {
 };
 
 export const ContentCard = ({
-    data: { title, content, type, url, thumbnailUrl, faviconUrl, id },
+    data: { title, content, type, url, thumbnailUrl, faviconUrl, id, metadata },
     onDelete,
 }: ContentCardProps) => {
     const [, setIsLoaded] = React.useState(!thumbnailUrl);
@@ -96,9 +96,22 @@ export const ContentCard = ({
                 );
             }
 
+            let playIcon;
+            if (
+                metadata?.type === "video" ||
+                metadata?.type === "video.other"
+            ) {
+                playIcon = (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <Play className="w-20 h-20 rounded-full p-6 text-white bg-gray-600/50 backdrop-blur-sm" />
+                    </div>
+                );
+            }
+
             cardContent = (
-                <CardContent className="p-0">
+                <CardContent className="p-0 relative">
                     {thumbnailImage}
+                    {playIcon}
                     <Link
                         to={url || ""}
                         target="_blank"
@@ -143,7 +156,7 @@ export const ContentCard = ({
                                         <img
                                             src={faviconUrl || ""}
                                             alt={title || ""}
-                                            className="w-6 h-6 mb-8 grayscale group-hover:grayscale-0"
+                                            className="max-h-[24px] min-w-[24px] w-fit h-fit mb-8 grayscale group-hover:grayscale-0"
                                         />
                                     )}
                                     {title && (
@@ -158,7 +171,21 @@ export const ContentCard = ({
                                         </CardTitle>
                                     )}
                                 </CardHeader>
-                            ) : null}
+                            ) : (
+                                <CardHeader className="p-4">
+                                    {
+                                        <CardTitle className="font-serif font-normal text-base md:text-lg lg:text-xl line-clamp-2">
+                                            {
+                                                <span
+                                                    dangerouslySetInnerHTML={{
+                                                        __html: content || "",
+                                                    }}
+                                                />
+                                            }
+                                        </CardTitle>
+                                    }
+                                </CardHeader>
+                            )}
                             {cardContent}
                         </Card>
                     </DialogTrigger>
@@ -195,7 +222,7 @@ export const ContentCard = ({
     return (
         <ContextMenu key={id}>
             <ContextMenuTrigger>
-                <div className={`break-inside-avoid mb-2 md:mb-3 lg:mb-4`}>
+                <div className="break-inside-avoid mb-2 md:mb-3 lg:mb-4">
                     {cardVariant}
                 </div>
             </ContextMenuTrigger>
