@@ -14,7 +14,6 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { User } from "~/session";
 import logo from "/logo.svg";
-import { useEventSource } from "remix-utils/sse/react";
 
 function getGreetingBasedOnTime() {
     const hour = new Date().getHours();
@@ -66,22 +65,6 @@ export function UserActions({ user }: { user: Maybe<User> }) {
                 </Form>
             </DropdownMenuContent>
         </DropdownMenu>
-    );
-}
-
-function Time() {
-    const time = useEventSource("/sse/time", { event: "time" });
-    if (!time) return null;
-    return (
-        <div>
-            <time dateTime={time}>
-                {new Date(time).toLocaleTimeString("en", {
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour: "2-digit",
-                })}
-            </time>
-        </div>
     );
 }
 

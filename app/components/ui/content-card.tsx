@@ -155,12 +155,14 @@ export const ContentCard = ({
                             {faviconUrl || title ? (
                                 <CardHeader className="p-4">
                                     {faviconUrl && (
-                                        <img
-                                            loading="lazy"
-                                            src={faviconUrl || ""}
-                                            alt={title || ""}
-                                            className="max-h-[24px] min-w-[24px] w-fit h-fit mb-8 grayscale group-hover:grayscale-0"
-                                        />
+                                        <div className="flex items-center justify-start ">
+                                            <img
+                                                loading="lazy"
+                                                src={faviconUrl || ""}
+                                                alt={title || ""}
+                                                className="w-auto h-fit max-h-[24px] min-w-[24px] object-contain mb-8 grayscale group-hover:grayscale-0"
+                                            />
+                                        </div>
                                     )}
                                     {title && (
                                         <CardTitle className="font-serif font-normal text-base md:text-lg lg:text-xl line-clamp-2">

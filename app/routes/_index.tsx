@@ -1,29 +1,19 @@
-import {
-    data,
-    useFetcher,
-    useLoaderData,
-    useRevalidator,
-} from "@remix-run/react";
+import { data, useFetcher, useLoaderData } from "@remix-run/react";
 import {
     ActionFunctionArgs,
     LoaderFunctionArgs,
     type MetaFunction,
 } from "@vercel/remix";
-import { desc, eq } from "drizzle-orm";
 import React from "react";
-import { useEventSource } from "remix-utils/sse/react";
 import { ContentCard } from "~/components/ui/content-card";
 import { InProgressCard } from "~/components/ui/in-progress-card";
 import { InputCard } from "~/components/ui/input-card";
 import { MasonryGrid } from "~/components/ui/masonry-grid";
 import { Motion } from "~/components/ui/motion";
-import { db } from "~/db/db.server";
-import { item as itemTable } from "~/db/schema/item";
 import { useToast } from "~/hooks/use-toast";
-import { requireUserSession } from "~/session";
-import { ProcessingStatus } from "~/util/emitter";
-import { deleteItem, saveItem } from "~/util/util.server";
 import type { loader as itemsLoader } from "~/routes/resources.items";
+import { requireUserSession } from "~/session";
+import { deleteItem, saveItem } from "~/util/util.server";
 
 type BaseFetcherData = {
     success: boolean;
@@ -37,6 +27,8 @@ type ContentFetcherData = BaseFetcherData & {
 type DeleteFetcherData = BaseFetcherData & {
     itemId: string;
 };
+
+type Item = Awaited<ReturnType<typeof itemsLoader>>[number];
 
 export const meta: MetaFunction = () => {
     return [
@@ -59,12 +51,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return data({ user });
 }
 
-type Item = Awaited<ReturnType<typeof itemsLoader>>[number];
-
 export default function Index() {
-    const [processingItems, setProcessingItems] = React.useState<
-        Record<string, ProcessingStatus>
-    >({});
     const [items, setItems] = React.useState<Item[]>([]);
 
     const [showCard, setShowCard] = React.useState(false);
@@ -144,43 +131,6 @@ export default function Index() {
         }
     }, [pasteFetcher.data, toast]);
 
-    // Revalidate data when processing completes
-    // React.useEffect(() => {
-    //     if (processingCompleteEvent) {
-    //         try {
-    //             const data = JSON.parse(processingCompleteEvent) as {
-    //                 id: string;
-    //                 success: boolean;
-    //                 message: string;
-    //             };
-    //             console.log(
-    //                 "Processing complete in index, refreshing data:",
-    //                 data
-    //             );
-
-    //             // Add a small delay to ensure the database has been updated
-    //             setTimeout(() => {
-    //                 revalidate();
-    //                 if (data.success) {
-    //                     toast({
-    //                         title: "Processing Complete",
-    //                         description: data.message,
-    //                         variant: "default",
-    //                     });
-    //                 } else {
-    //                     toast({
-    //                         title: "Processing Failed",
-    //                         description: data.message,
-    //                         variant: "destructive",
-    //                     });
-    //                 }
-    //             }, 500);
-    //         } catch (e) {
-    //             console.error("Failed to parse processing-complete event:", e);
-    //         }
-    //     }
-    // }, [processingCompleteEvent, revalidate, toast]);
-
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
         event.preventDefault();
         event.stopPropagation();
@@ -251,13 +201,7 @@ export default function Index() {
                     key="input-card"
                     user={user}
                 />
-                {showCard && (
-                    <InProgressCard
-                        processingItems={processingItems}
-                        setProcessingItems={setProcessingItems}
-                        setShowCard={setShowCard}
-                    />
-                )}
+                {showCard && <InProgressCard setShowCard={setShowCard} />}
                 {savedItemsCards}
             </MasonryGrid>
             <pasteFetcher.Form ref={pasteRef}>
@@ -279,7 +223,6 @@ export async function action({ request }: ActionFunctionArgs) {
     const formData = await request.formData();
     const intent = formData.get("intent");
 
-    console.log("intent", intent);
     switch (intent) {
         case "custom-input":
             const typedContent = formData.get("content");
@@ -325,7 +268,7 @@ export async function action({ request }: ActionFunctionArgs) {
                     };
                 }
             } catch (error) {
-                console.log("failed to delete item", error);
+                console.error("failed to delete item", error);
                 return {
                     success: false,
                     message: "Item could not be deleted",
