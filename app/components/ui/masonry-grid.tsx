@@ -1,8 +1,9 @@
 import { AnimatePresence } from "framer-motion";
+import Masonry from "react-masonry-css";
 import React from "react";
 
 type MasonryGridProps = {
-    children: React.ReactNode[];
+    children: React.ReactNode;
 };
 
 const columnsByBreakpoint = {
@@ -12,7 +13,7 @@ const columnsByBreakpoint = {
     lg: 3,
     "2xl": 5,
     "1600px": 4,
-    "1920px": 6,
+    "1920px": 5,
     "2560px": 8,
     "3200px": 11,
 };
@@ -27,43 +28,66 @@ const breakpoints = [
     { width: 768, columns: columnsByBreakpoint.md },
 ];
 
+const masonryBreakpoints = {
+    default: columnsByBreakpoint.default,
+    3200: columnsByBreakpoint["3200px"],
+    2560: columnsByBreakpoint["2560px"],
+    1920: columnsByBreakpoint["1920px"],
+    1600: columnsByBreakpoint["1600px"],
+    1280: columnsByBreakpoint.default,
+    1024: columnsByBreakpoint.lg,
+    768: columnsByBreakpoint.md,
+};
+
 export const MasonryGrid: React.FC<MasonryGridProps> = ({ children }) => {
-    const [numberOfColumns, setNumberOfColumns] = React.useState(
-        columnsByBreakpoint.default
-    );
+    // const [numberOfColumns, setNumberOfColumns] = React.useState(
+    //     columnsByBreakpoint.default
+    // );
 
     // Responsive column adjustment
-    const updateColumns = React.useCallback(() => {
-        const width = window.innerWidth;
-        const breakpoint = breakpoints.find((bp) => width >= bp.width);
-        setNumberOfColumns(breakpoint?.columns ?? columnsByBreakpoint.sm);
-    }, []);
+    // const updateColumns = React.useCallback(() => {
+    //     const width = window.innerWidth;
+    //     const breakpoint = breakpoints.find((bp) => width >= bp.width);
+    //     setNumberOfColumns(breakpoint?.columns ?? columnsByBreakpoint.sm);
+    // }, []);
 
-    React.useEffect(() => {
-        updateColumns();
-        window.addEventListener("resize", updateColumns);
-        return () => window.removeEventListener("resize", updateColumns);
-    }, [updateColumns]);
+    // React.useEffect(() => {
+    //     updateColumns();
+    //     window.addEventListener("resize", updateColumns);
+    //     return () => window.removeEventListener("resize", updateColumns);
+    // }, [updateColumns]);
 
-    const grid = React.useMemo(() => {
-        const grid: React.ReactNode[][] = Array.from(
-            { length: numberOfColumns },
-            () => []
-        );
-        React.Children.forEach(children, (child, index) => {
-            const columnIndex = Math.floor(index % numberOfColumns);
-            grid[columnIndex].push(child);
-        });
-        return grid;
-    }, [children, numberOfColumns]);
+    // const grid = React.useMemo(() => {
+    //     const grid: React.ReactNode[][] = Array.from(
+    //         { length: numberOfColumns },
+    //         () => []
+    //     );
+    //     React.Children.forEach(children, (child, index) => {
+    //         const columnIndex = Math.floor(index % numberOfColumns);
+    //         grid[columnIndex].push(child);
+    //     });
+    //     return grid;
+    // }, [children, numberOfColumns]);
 
     return (
-        <div className="gap-2 md:gap-3 lg:gap-4 columns-2 lg:columns-3 xl:columns-4 min-[1920px]:columns-6 min-[2560px]:columns-8 min-[3200px]:columns-10">
-            <AnimatePresence mode="popLayout">
-                {grid.map((child, index) => (
-                    <div key={index}>{child}</div>
-                ))}
-            </AnimatePresence>
-        </div>
+        <Masonry
+            breakpointCols={masonryBreakpoints}
+            className="flex w-auto -ml-2 md:-ml-3 lg:-ml-4"
+            columnClassName="pl-2 md:pl-3 lg:pl-4 bg-clip-padding"
+        >
+            {/* <AnimatePresence mode="popLayout"> */}
+            {React.Children.toArray(children).filter(Boolean)}
+            {/* </AnimatePresence> */}
+        </Masonry>
     );
+
+    // return (
+    //     <div className="gap-2 md:gap-3 lg:gap-4 columns-2 lg:columns-3 xl:columns-4 min-[1920px]:columns-6 min-[2560px]:columns-8 min-[3200px]:columns-10">
+    //         <AnimatePresence mode="popLayout">
+    //             {grid.map((child, index) => (
+    //                 <div key={index}>{child}</div>
+    //             ))}
+    //         </AnimatePresence>
+    //     </div>
+    // );
 };

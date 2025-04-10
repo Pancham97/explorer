@@ -21,7 +21,9 @@ import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { useToast } from "~/hooks/use-toast";
 import { requireUserSession } from "~/session";
+import { ProcessingStatus } from "~/util/emitter";
 import { deleteItem, saveItem } from "~/util/util.server";
+import type { loader as itemsLoader } from "~/routes/resources.items";
 
 type BaseFetcherData = {
     success: boolean;
@@ -51,35 +53,48 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const session = await requireUserSession(request);
     const user = session.get("user");
     if (!user) {
-        return { savedItems: [], user: null };
+        return { user: null };
     }
 
-    const savedItems = await db
-        .select()
-        .from(itemTable)
-        .where(eq(itemTable.userId, user?.id ?? ""))
-        .orderBy(desc(itemTable.updatedAt));
-
-    return data({ savedItems, user });
+    return data({ user });
 }
 
+type Item = Awaited<ReturnType<typeof itemsLoader>>[number];
+
 export default function Index() {
-    const { user, savedItems } = useLoaderData<typeof loader>();
-    const newItemEventMessage = useEventSource("/sse/save-item", {
-        event: "new-item",
-    });
-    const processingCompleteEvent = useEventSource("/sse/save-item", {
-        event: "processing-complete",
-    });
+    const [processingItems, setProcessingItems] = React.useState<
+        Record<string, ProcessingStatus>
+    >({});
+    const [items, setItems] = React.useState<Item[]>([]);
+
+    const [showCard, setShowCard] = React.useState(false);
+
+    const { user } = useLoaderData<typeof loader>();
+
     const pasteRef = React.useRef<HTMLFormElement>(null);
     const formRef = React.useRef<HTMLFormElement>(null);
-    const { revalidate } = useRevalidator();
+
+    const itemsFetcher = useFetcher<Item[]>();
+
+    // First load on mount
+    React.useEffect(() => {
+        itemsFetcher.load("/resources/items");
+    }, []);
+
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            itemsFetcher.load("/resources/items");
+        }, 7000);
+        return () => clearInterval(interval);
+    }, []);
+
+    React.useEffect(() => {
+        if (itemsFetcher.data?.length) {
+            setItems(itemsFetcher.data);
+        }
+    }, [itemsFetcher.data]);
 
     const { toast } = useToast();
-
-    if (newItemEventMessage) {
-        console.log("newItemEventMessage", newItemEventMessage);
-    }
 
     const pasteFetcher = useFetcher<ContentFetcherData>({
         key: "paste-fetcher",
@@ -130,41 +145,41 @@ export default function Index() {
     }, [pasteFetcher.data, toast]);
 
     // Revalidate data when processing completes
-    React.useEffect(() => {
-        if (processingCompleteEvent) {
-            try {
-                const data = JSON.parse(processingCompleteEvent) as {
-                    id: string;
-                    success: boolean;
-                    message: string;
-                };
-                console.log(
-                    "Processing complete in index, refreshing data:",
-                    data
-                );
+    // React.useEffect(() => {
+    //     if (processingCompleteEvent) {
+    //         try {
+    //             const data = JSON.parse(processingCompleteEvent) as {
+    //                 id: string;
+    //                 success: boolean;
+    //                 message: string;
+    //             };
+    //             console.log(
+    //                 "Processing complete in index, refreshing data:",
+    //                 data
+    //             );
 
-                // Add a small delay to ensure the database has been updated
-                setTimeout(() => {
-                    revalidate();
-                    if (data.success) {
-                        toast({
-                            title: "Processing Complete",
-                            description: data.message,
-                            variant: "default",
-                        });
-                    } else {
-                        toast({
-                            title: "Processing Failed",
-                            description: data.message,
-                            variant: "destructive",
-                        });
-                    }
-                }, 500);
-            } catch (e) {
-                console.error("Failed to parse processing-complete event:", e);
-            }
-        }
-    }, [processingCompleteEvent, revalidate, toast]);
+    //             // Add a small delay to ensure the database has been updated
+    //             setTimeout(() => {
+    //                 revalidate();
+    //                 if (data.success) {
+    //                     toast({
+    //                         title: "Processing Complete",
+    //                         description: data.message,
+    //                         variant: "default",
+    //                     });
+    //                 } else {
+    //                     toast({
+    //                         title: "Processing Failed",
+    //                         description: data.message,
+    //                         variant: "destructive",
+    //                     });
+    //                 }
+    //             }, 500);
+    //         } catch (e) {
+    //             console.error("Failed to parse processing-complete event:", e);
+    //         }
+    //     }
+    // }, [processingCompleteEvent, revalidate, toast]);
 
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
         event.preventDefault();
@@ -208,8 +223,8 @@ export default function Index() {
     };
 
     let savedItemsCards;
-    if (savedItems.length > 0) {
-        savedItemsCards = savedItems
+    if (items.length > 0) {
+        savedItemsCards = items
             .filter((item) => deleteFetcher.formData?.get("itemId") !== item.id)
             .map((item) => (
                 <Motion key={item.id}>
@@ -236,7 +251,13 @@ export default function Index() {
                     key="input-card"
                     user={user}
                 />
-                <InProgressCard />
+                {showCard && (
+                    <InProgressCard
+                        processingItems={processingItems}
+                        setProcessingItems={setProcessingItems}
+                        setShowCard={setShowCard}
+                    />
+                )}
                 {savedItemsCards}
             </MasonryGrid>
             <pasteFetcher.Form ref={pasteRef}>
