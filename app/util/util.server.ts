@@ -8,7 +8,6 @@ import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { metadata as metadataTable } from "~/db/schema/metadata";
 import { User } from "~/session";
-import { emitter } from "~/util/emitter";
 import metascraper from "metascraper";
 
 type Metadata = {
@@ -261,31 +260,10 @@ export async function processItem(id: string, user: User) {
         return null;
     }
 
-    // Emit processing start event with item type
-    emitter.emit("processing-start", { id: item.id, itemType: item.type });
-
     if (item.type === "file") {
-        // Handle file processing here
-        emitter.emit("processing-update", {
-            id: item.id,
-            message: "Processing file content...",
-        });
-
-        // After file processing logic
-        emitter.emit("processing-complete", {
-            id: item.id,
-            success: true,
-            message: "File processing completed",
-        });
-
         return null;
     } else if (item.url && isURL(item.url)) {
         console.log("processing URL", item.url);
-        // Emit update for URL processing
-        emitter.emit("processing-update", {
-            id: item.id,
-            message: "Fetching metadata...",
-        });
 
         // check if the stripped URL exists in the `metadata` table if it does,
         // then update the item with the new metadata if it doesn't, then create
@@ -296,11 +274,6 @@ export async function processItem(id: string, user: User) {
             .where(eq(metadataTable.strippedUrl, stripURL(item.url)));
 
         if (existingMetadata[0]?.metadata) {
-            emitter.emit("processing-update", {
-                id: item.id,
-                message: "Fetching metadata...",
-            });
-
             const { image, title, author, lang, publisher, description, logo } =
                 existingMetadata[0].metadata as metascraper.Metadata;
 
@@ -332,28 +305,11 @@ export async function processItem(id: string, user: User) {
                 )
                 .$dynamic();
 
-            emitter.emit("processing-complete", {
-                id: item.id,
-                success: true,
-                message: "URL metadata processed successfully",
-            });
-
             return result;
         } else {
-            // Emit update for new URL metadata processing
-            emitter.emit("processing-update", {
-                id: item.id,
-                message: "Fetching and processing metadata...",
-            });
-
             // Fire and forget - don't await the processing
             processURLItem(item, user).catch((error) => {
                 console.error("Error in background URL processing:", error);
-                emitter.emit("processing-complete", {
-                    id: item.id,
-                    success: false,
-                    message: "Failed to process URL in background",
-                });
             });
 
             console.log("returning immediately");
@@ -363,18 +319,8 @@ export async function processItem(id: string, user: User) {
     }
 
     // For text items
-    emitter.emit("processing-update", {
-        id: item.id,
-        message: "Processing text content...",
-    });
 
     const result = await processTextItem(item, user);
-
-    emitter.emit("processing-complete", {
-        id: item.id,
-        success: !!result,
-        message: "Text content processed successfully",
-    });
 
     return result;
 }
@@ -388,18 +334,8 @@ export async function deleteItem(itemId: string, user: User) {
 
 async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
     if (!item.url) {
-        emitter.emit("processing-complete", {
-            id: item.id,
-            success: false,
-            message: "No URL provided for processing",
-        });
         return null;
     }
-
-    emitter.emit("processing-update", {
-        id: item.id,
-        message: "fetching metadata...",
-    });
 
     // const { openGraphData, metadata } = await getOpenGraphData(
     //     new URL(item.content)
@@ -424,19 +360,8 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
         ).then((res) => res.json());
 
         if (!metadata) {
-            emitter.emit("processing-complete", {
-                id: item.id,
-                success: false,
-                message: "Failed to fetch metadata for URL",
-            });
             return null;
         }
-
-        emitter.emit("processing-update", {
-            id: item.id,
-            message: "Updating item with URL metadata...",
-            progress: 80,
-        });
 
         console.log("metadata -<<<<>>>>>", metadata);
 
@@ -458,22 +383,11 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
             )
             .$dynamic();
 
-        // Emit success event after database update
-        emitter.emit("processing-complete", {
-            id: item.id,
-            success: true,
-            message: "URL processed successfully",
-        });
-
         console.log("returning result", result);
         return result;
     } catch (error) {
         console.error("Error processing URL", error);
-        emitter.emit("processing-complete", {
-            id: item.id,
-            success: false,
-            message: "Error fetching metadata",
-        });
+
         return null;
     }
 }
@@ -510,8 +424,6 @@ export const saveItem = async (textContent: string, user: User) => {
         console.log("saving primary information");
         const savedItemInfo = await savePrimaryInformation(textContent, user);
         console.log("saved primary information", savedItemInfo);
-
-        emitter.emit("new-item", savedItemInfo.id);
 
         processItem(savedItemInfo.id, user);
         return {
