@@ -1,9 +1,26 @@
+# Apr 09, 2025
+
+- [ ] Add polling instead of server sent events as Vercel has a limit of 10 seconds for function execution and increasing the time will only exhaust the free credits
+- [X] Migrate from Fargate to EC2
+  - [X] Create a new EC2 instance -- t3.medium
+  - [X] Install Docker
+  - [X] Pull the metadata-fetcher image
+  - [X] Run the metadata-fetcher container
+  - [X] Create a new security group
+  - [X] Allow inbound traffic on port 3000
+  - [X] Allow all traffic on port 3000
+- [ ] Add support for file uploads
+- [ ] Fix the masonry grid layout
+- [ ] Add search
+- [ ] AI generated tags
+- [ ] Better queueing system
+
 # Mar 25, 2025
 
-- [ ] Fix the event source failure on production
-- [ ] Fix the content from being saved in place of URL
-- [ ] Fix the URL being saved in place of content
-- [ ] Reduce replica from 2 to 1, and max from 3 to 2
+- [ ] Fix the event source failure on production -- To be fixed by polling
+- [X] Fix the content from being saved in place of URL
+- [X] Fix the URL being saved in place of content
+- [X] Reduce replica from 2 to 1, and max from 3 to 2
 
 # Mar 16, 2025
 

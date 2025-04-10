@@ -69,6 +69,7 @@ export const ContentCard = ({
                         alt={title || ""}
                         className="w-full h-auto object-cover"
                         onLoad={() => setIsLoaded(true)}
+                        loading="lazy"
                     />
                 </CardContent>
                 <CardHeader>
@@ -92,6 +93,7 @@ export const ContentCard = ({
                         src={thumbnailUrl}
                         alt={title || ""}
                         className="w-full h-auto object-cover rounded-sm"
+                        loading="lazy"
                     />
                 );
             }
@@ -154,6 +156,7 @@ export const ContentCard = ({
                                 <CardHeader className="p-4">
                                     {faviconUrl && (
                                         <img
+                                            loading="lazy"
                                             src={faviconUrl || ""}
                                             alt={title || ""}
                                             className="max-h-[24px] min-w-[24px] w-fit h-fit mb-8 grayscale group-hover:grayscale-0"
