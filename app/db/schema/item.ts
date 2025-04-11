@@ -20,6 +20,7 @@ export const item = singlestoreTable(
         isFavorite: tinyint("is_favorite").default(0).notNull(),
         lastAccessedAt: timestamp("last_accessed_at", { mode: "date" }),
         metadata: json(),
+        metadataId: varchar("metadata_id", { length: 255 }),
         tags: json(),
         thumbnailUrl: varchar("thumbnail_url", { length: 4096 }),
         title: varchar({ length: 360 }),

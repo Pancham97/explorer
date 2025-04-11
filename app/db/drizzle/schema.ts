@@ -31,6 +31,7 @@ export const item = singlestoreTable(
         thumbnailUrl: varchar("thumbnail_url", { length: 4096 }),
         title: varchar({ length: 360 }),
         description: varchar({ length: 360 }),
+        metadataId: varchar("metadata_id", { length: 255 }),
     },
     (table) => [primaryKey({ columns: [table.id], name: "item_id" })]
 );
@@ -41,6 +42,8 @@ export const metadata = singlestoreTable(
         id: varchar({ length: 255 }).notNull(),
         strippedUrl: varchar({ length: 4096 }).notNull(),
         metadata: json(),
+        createdAt: timestamp("created_at", { mode: "string" }).notNull(),
+        updatedAt: timestamp("updated_at", { mode: "string" }).notNull(),
     },
     (table) => [primaryKey({ columns: [table.id], name: "metadata_id" })]
 );

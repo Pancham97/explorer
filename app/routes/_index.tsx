@@ -4,6 +4,7 @@ import {
     LoaderFunctionArgs,
     type MetaFunction,
 } from "@vercel/remix";
+import { Loader2 } from "lucide-react";
 import React from "react";
 import { ContentCard } from "~/components/ui/content-card";
 import { InProgressCard } from "~/components/ui/in-progress-card";
@@ -13,7 +14,7 @@ import { Motion } from "~/components/ui/motion";
 import { useToast } from "~/hooks/use-toast";
 import type { loader as itemsLoader } from "~/routes/resources.items";
 import { requireUserSession } from "~/session";
-import { deleteItem, saveItem } from "~/util/util.server";
+import { deleteItem, saveItem, uploadFileToS3 } from "~/util/util.server";
 
 type BaseFetcherData = {
     success: boolean;
@@ -22,13 +23,16 @@ type BaseFetcherData = {
 
 type ContentFetcherData = BaseFetcherData & {
     content: string;
+    itemId?: string;
 };
 
 type DeleteFetcherData = BaseFetcherData & {
     itemId: string;
 };
 
-type Item = Awaited<ReturnType<typeof itemsLoader>>[number];
+type Item = Awaited<ReturnType<typeof itemsLoader>>[number] & {
+    type?: string;
+};
 
 export const meta: MetaFunction = () => {
     return [
@@ -128,8 +132,41 @@ export default function Index() {
                     "We have pasted your content to the input card. Please edit it as needed and try again.",
                 variant: "destructive",
             });
+        } else if (
+            pasteFetcher.data?.success &&
+            pasteFetcher.data?.content &&
+            user
+        ) {
+            // Handle successful file upload
+            toast({
+                title: "File uploaded successfully!",
+                description:
+                    "Your file has been uploaded and is ready to view.",
+                variant: "default",
+            });
+            // Optionally add the file URL to the items list
+            if (pasteFetcher.data.itemId) {
+                const newItem: Item = {
+                    id: pasteFetcher.data.itemId,
+                    content: pasteFetcher.data.content,
+                    type: "file",
+                    title: "Uploaded File",
+                    description: "A file you uploaded",
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    userId: user.id,
+                    faviconUrl: null,
+                    isFavorite: 0,
+                    lastAccessedAt: null,
+                    metadata: {},
+                    tags: {},
+                    thumbnailUrl: "",
+                    url: "",
+                };
+                setItems((prevItems) => [...prevItems, newItem]);
+            }
         }
-    }, [pasteFetcher.data, toast]);
+    }, [pasteFetcher.data, toast, user]);
 
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
         event.preventDefault();
@@ -144,6 +181,7 @@ export default function Index() {
             const file = copiedFiles[0];
             const formData = new FormData(pasteRef.current!);
             formData.set("pastedContent", file);
+            console.log("formData", formData);
             pasteFetcher.submit(formData, {
                 method: "post",
                 encType: "multipart/form-data",
@@ -185,6 +223,21 @@ export default function Index() {
                     />
                 </Motion>
             ));
+    }
+
+    if (!itemsFetcher.data) {
+        return (
+            <div className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6">
+                <div className="flex justify-center items-center h-full">
+                    <div className="flex flex-col items-center">
+                        <Loader2 className="w-10 h-10 animate-spin" />
+                        <p className="text-sm text-muted-foreground">
+                            Loading...
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -234,14 +287,28 @@ export async function action({ request }: ActionFunctionArgs) {
         case "paste":
             if (request.headers.get("Content-Type") === "multipart/form-data") {
                 const file = formData.get("pastedContent") as File;
-
-                return {
-                    success: false,
-                    message: "File could not be saved",
-                };
+                console.log("file", file);
+                if (file) {
+                    const uploadResult = await uploadFileToS3(file, user);
+                    if (uploadResult.success) {
+                        return {
+                            success: true,
+                            message: "File uploaded successfully!",
+                            content: uploadResult.url,
+                            itemId: uploadResult.id,
+                        };
+                    } else {
+                        return {
+                            success: false,
+                            message: "Failed to upload file",
+                            content: null,
+                        };
+                    }
+                }
             }
 
             const pastedContent = formData.get("pastedContent");
+            console.log("pastedContent", pastedContent);
             if (pastedContent) {
                 return saveItem(pastedContent.toString(), user);
             }

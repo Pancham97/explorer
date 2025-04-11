@@ -9,6 +9,8 @@ import { item as itemTable } from "~/db/schema/item";
 import { metadata as metadataTable } from "~/db/schema/metadata";
 import { User } from "~/session";
 import metascraper from "metascraper";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { s3Client, CLOUDFRONT_URL } from "~/common/aws";
 
 type Metadata = {
     lang: Nullable<string>;
@@ -352,7 +354,6 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
                 body: JSON.stringify({
                     url: item.url.trim(),
                 }),
-                mode: "no-cors",
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -371,11 +372,11 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
                 content: getDescription(metadata.description),
                 description: getDescription(metadata.description),
                 faviconUrl: prepareUrl(metadata.logo, metadata.url || ""),
-                metadata,
                 tags: {},
                 thumbnailUrl: metadata.image,
                 title: getTitle(metadata.title),
                 updatedAt: new Date(),
+                metadataId: metadata.id,
                 url: item.url,
             })
             .where(
@@ -440,3 +441,44 @@ export const saveItem = async (textContent: string, user: User) => {
         };
     }
 };
+
+export async function uploadFileToS3(file: File, user: User) {
+    const id = ulid();
+    const fileExtension = file.name.split(".").pop();
+    const key = `public/uploads/${user.id}/${id}.${fileExtension}`;
+
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        const putObjectCommand = new PutObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET!,
+            Key: key,
+            Body: buffer,
+            ContentType: file.type,
+        });
+
+        await s3Client.send(putObjectCommand);
+
+        console.log("key", key);
+
+        const cloudfrontUrl = `${CLOUDFRONT_URL}/${key}`;
+
+        console.log("cloudfrontUrl", cloudfrontUrl);
+
+        return {
+            success: true,
+            message: "File uploaded successfully!",
+            url: cloudfrontUrl,
+            id,
+        };
+    } catch (error) {
+        console.error("Failed to upload file:", error);
+        return {
+            success: false,
+            message: "Failed to upload file",
+            url: null,
+            id: null,
+        };
+    }
+}
