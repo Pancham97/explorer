@@ -155,12 +155,10 @@ export default function Index() {
                     createdAt: new Date(),
                     updatedAt: new Date(),
                     userId: user.id,
-                    faviconUrl: null,
                     isFavorite: 0,
                     lastAccessedAt: null,
                     metadata: {},
                     tags: {},
-                    thumbnailUrl: "",
                     url: "",
                 };
                 setItems((prevItems) => [...prevItems, newItem]);

@@ -21,6 +21,7 @@ type Metadata = {
     description: Nullable<string>;
     url: Nullable<string>;
     logo: Nullable<string>;
+    id: Nullable<string>;
 };
 
 type OGResponse = {
@@ -33,11 +34,9 @@ const DEFAULT_DB_VALUES: Partial<typeof itemTable.$inferInsert> = {
     lastAccessedAt: new Date(),
     updatedAt: new Date(),
     description: "",
-    faviconUrl: "",
     isFavorite: 0,
     metadata: {},
     tags: {},
-    thumbnailUrl: "",
     title: "",
     type: "text" as const,
     url: "",
@@ -276,20 +275,27 @@ export async function processItem(id: string, user: User) {
             .where(eq(metadataTable.strippedUrl, stripURL(item.url)));
 
         if (existingMetadata[0]?.metadata) {
-            const { image, title, author, lang, publisher, description, logo } =
-                existingMetadata[0].metadata as metascraper.Metadata;
+            const {
+                image,
+                title,
+                author,
+                lang,
+                publisher,
+                description,
+                logo,
+                id,
+            } = existingMetadata[0].metadata as metascraper.Metadata;
 
             const result = await db
                 .update(itemTable)
                 .set({
                     description: getDescription(description),
-                    faviconUrl: logo?.slice(0, 255),
                     content: item.content,
                     metadata: {
                         ...existingMetadata[0].metadata,
                         title: getTitle(title),
                     },
-                    thumbnailUrl: image?.slice(0, 4096),
+                    metadataId: existingMetadata[0].id,
                     title: getTitle(title),
                     url: item.url,
                     tags: {
@@ -344,7 +350,7 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
     // );
 
     try {
-        const { metadata }: { metadata: metascraper.Metadata } = await fetch(
+        const { metadata }: { metadata: unknown } = await fetch(
             // process.env.NODE_ENV === "production"
             // ? // "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata",
             "https://fetcher.sunchay.com/fetch-metadata",
@@ -371,9 +377,7 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
             .set({
                 content: getDescription(metadata.description),
                 description: getDescription(metadata.description),
-                faviconUrl: prepareUrl(metadata.logo, metadata.url || ""),
                 tags: {},
-                thumbnailUrl: metadata.image,
                 title: getTitle(metadata.title),
                 updatedAt: new Date(),
                 metadataId: metadata.id,
