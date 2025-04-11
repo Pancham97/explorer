@@ -24,21 +24,21 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { item as itemTable } from "~/db/schema/item";
+import { ItemWithMetadata } from "~/lib/types";
 import { copyToClipboard, getDomainFromUrl } from "~/lib/utils";
 
 const FALLBACK_THUMBNAIL = "/opengraph-fallback.jpg";
 
 type ContentCardProps = {
-    data: typeof itemTable.$inferSelect;
+    data: ItemWithMetadata;
     onDelete: (id: string) => void;
 };
 
 export const ContentCard = ({
-    data: { title, content, type, url, thumbnailUrl, faviconUrl, id, metadata },
+    data: { title, content, type, url, faviconUrl, id, metadata },
     onDelete,
 }: ContentCardProps) => {
-    const [, setIsLoaded] = React.useState(!thumbnailUrl);
+    const [, setIsLoaded] = React.useState(!metadata?.image);
 
     let copyMenuItem;
     if (type === "url" && url && url.length > 0) {
@@ -65,7 +65,7 @@ export const ContentCard = ({
 
                 <CardContent>
                     <img
-                        src={thumbnailUrl || FALLBACK_THUMBNAIL}
+                        src={metadata?.image ?? FALLBACK_THUMBNAIL}
                         alt={title || ""}
                         className="w-full h-auto object-cover"
                         onLoad={() => setIsLoaded(true)}
@@ -87,10 +87,10 @@ export const ContentCard = ({
             );
         } else if (type === "url" && url && url.length > 0) {
             let thumbnailImage;
-            if (thumbnailUrl) {
+            if (metadata?.image) {
                 thumbnailImage = (
                     <img
-                        src={thumbnailUrl}
+                        src={metadata?.image}
                         alt={title || ""}
                         className="w-full h-auto object-cover rounded-sm"
                         loading="lazy"
@@ -105,7 +105,7 @@ export const ContentCard = ({
             ) {
                 playIcon = (
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <Play className="w-20 h-20 rounded-full p-6 text-white bg-gray-600/50 backdrop-blur-sm" />
+                        <Play className="w-10 h-10 md:w-14 md:h-14 lg:w-20 lg:h-20 rounded-full p-2 md:p-4 lg:p-6 text-white bg-gray-600/50 backdrop-blur-sm" />
                     </div>
                 );
             }
@@ -152,13 +152,13 @@ export const ContentCard = ({
                 <Dialog>
                     <DialogTrigger asChild className="cursor-pointer">
                         <Card className="hover:border-ring transition-[border] duration-300 relative w-full">
-                            {faviconUrl || title ? (
+                            {metadata?.logo || title ? (
                                 <CardHeader className="p-4">
-                                    {faviconUrl && (
+                                    {metadata?.logo && (
                                         <div className="flex items-center justify-start ">
                                             <img
                                                 loading="lazy"
-                                                src={faviconUrl || ""}
+                                                src={metadata?.logo || ""}
                                                 alt={title || ""}
                                                 className="w-auto h-fit max-h-[24px] min-w-[24px] object-contain mb-8 grayscale group-hover:grayscale-0"
                                             />

@@ -1,0 +1,1 @@
+ALTER TABLE `item` ADD `metadata_id` varchar(255);
