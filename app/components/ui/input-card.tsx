@@ -118,12 +118,6 @@ export const InputCard = ({
                         onChange={(e) => {
                             setHasContent(e.target.value.length > 0);
                         }}
-                        onPaste={(e) => {
-                            // This is done because the paste event triggers a
-                            // submit on the parent form and thereby does not
-                            // allow the user to paste content
-                            e.stopPropagation();
-                        }}
                         onKeyDown={(e) => {
                             if (
                                 (isMac && e.metaKey && e.key === "Enter") ||

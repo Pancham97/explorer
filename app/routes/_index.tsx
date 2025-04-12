@@ -224,35 +224,55 @@ export default function Index() {
         }
     }, [pasteFetcher.data, toast, user]);
 
-    const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        event.stopPropagation();
+    React.useEffect(() => {
+        const handlePaste = (event: ClipboardEvent) => {
+            const activeElement = document.activeElement;
 
-        const clipboardData = event.clipboardData;
-        if (!clipboardData) return;
+            const clipboardData = event.clipboardData;
+            if (!clipboardData) return;
 
-        const copiedFiles = clipboardData.files;
+            const files = clipboardData.files;
 
-        if (copiedFiles.length > 0) {
-            const file = copiedFiles[0];
-            const formData = new FormData(pasteRef.current!);
-            formData.set("pastedContent", file);
-            console.log("formData", formData);
-            pasteFetcher.submit(formData, {
-                method: "post",
-                encType: "multipart/form-data",
-            });
-        } else {
-            const pastedContent = clipboardData.getData("text");
-            if (!pastedContent) return;
+            if (files.length > 0) {
+                // FILE PASTE - Upload
+                const file = files[0];
+                const formData = new FormData();
+                formData.set("pastedContent", file);
+                formData.set("intent", "paste");
 
-            const formData = new FormData(pasteRef.current!);
-            formData.set("pastedContent", pastedContent);
-            pasteFetcher.submit(formData, {
-                method: "post",
-            });
-        }
-    };
+                pasteFetcher.submit(formData, {
+                    method: "post",
+                    encType: "multipart/form-data",
+                });
+
+                event.preventDefault();
+                return;
+            }
+
+            const pastedText = clipboardData.getData("text");
+            if (!pastedText) return;
+
+            const isTextAreaFocused = activeElement?.tagName === "TEXTAREA";
+
+            if (isTextAreaFocused) {
+                // TEXTAREA FOCUS - Append text to input (let browser handle it)
+                return; // Don't prevent default
+            } else {
+                // TEXT ELSEWHERE - Trigger upload
+                event.preventDefault();
+                const formData = new FormData();
+                formData.set("pastedContent", pastedText);
+                formData.set("intent", "paste");
+
+                pasteFetcher.submit(formData, {
+                    method: "post",
+                });
+            }
+        };
+
+        document.addEventListener("paste", handlePaste);
+        return () => document.removeEventListener("paste", handlePaste);
+    }, []);
 
     const handleDelete = async (itemId: string) => {
         deleteFetcher.submit(
@@ -297,10 +317,7 @@ export default function Index() {
     }
 
     return (
-        <div
-            className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6"
-            onPaste={handlePaste}
-        >
+        <div className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6">
             <MasonryGrid>
                 <InputCard
                     formRef={formRef}
@@ -341,12 +358,16 @@ export async function action({ request }: ActionFunctionArgs) {
             }
 
         case "paste":
-            if (request.headers.get("Content-Type") === "multipart/form-data") {
+            if (
+                request.headers
+                    .get("Content-Type")
+                    ?.includes("multipart/form-data")
+            ) {
                 const file = formData.get("pastedContent") as File;
-                console.log("file", file);
                 if (file) {
                     const uploadResult = await uploadFileToS3(file, user);
-                    if (uploadResult.success) {
+                    if (uploadResult.success && uploadResult.url) {
+                        saveItem(uploadResult.url, user);
                         return {
                             success: true,
                             message: "File uploaded successfully!",
