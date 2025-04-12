@@ -85,11 +85,7 @@ export const ContentCard = ({
 
         dialogContent = (
             <img
-                src={
-                    metadata?.sunchayAssetUrl ??
-                    metadata?.image ??
-                    FALLBACK_THUMBNAIL
-                }
+                src={metadata?.image ?? FALLBACK_THUMBNAIL}
                 alt={title || ""}
                 className="w-full h-auto object-cover"
                 onLoad={() => setIsLoaded(true)}
