@@ -70,12 +70,26 @@ export const ContentCard = ({
                     onLoad={() => setIsLoaded(true)}
                     loading="lazy"
                 />
+                <Link
+                    to={metadata?.sunchayAssetUrl ?? ""}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-1 right-1 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm"
+                >
+                    {getDomainFromUrl(metadata?.sunchayAssetUrl ?? "")}
+                    <ArrowUpRight />
+                </Link>
             </CardContent>
         );
 
         dialogContent = (
             <img
-                src={metadata?.sunchayAssetUrl ?? FALLBACK_THUMBNAIL}
+                src={
+                    metadata?.sunchayAssetUrl ??
+                    metadata?.image ??
+                    FALLBACK_THUMBNAIL
+                }
                 alt={title || ""}
                 className="w-full h-auto object-cover"
                 onLoad={() => setIsLoaded(true)}
