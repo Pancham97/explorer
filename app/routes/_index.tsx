@@ -269,11 +269,7 @@ export default function Index() {
     let savedItemsCards;
     if (items.length > 0) {
         savedItemsCards = items
-            .filter(
-                (item) =>
-                    deleteFetcher.data?.itemId !== item.id &&
-                    deleteFetcher.data?.success
-            )
+            .filter((item) => deleteFetcher.data?.itemId !== item.id)
             .map((item) => (
                 <Motion key={item.id}>
                     <ContentCard
