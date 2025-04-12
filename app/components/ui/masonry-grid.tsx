@@ -8,14 +8,14 @@ type MasonryGridProps = {
 
 const columnsByBreakpoint = {
     default: 4,
-    sm: 2,
-    md: 2,
-    lg: 3,
-    "2xl": 5,
-    "1600px": 4,
-    "1920px": 5,
+    "768px": 2,
+    "1024px": 3,
+    "1280px": 4,
+    "1600px": 5,
+    "1920px": 6,
     "2560px": 8,
     "3200px": 11,
+    "4096px": 12,
 };
 
 const breakpoints = [
@@ -23,20 +23,21 @@ const breakpoints = [
     { width: 2560, columns: columnsByBreakpoint["2560px"] },
     { width: 1920, columns: columnsByBreakpoint["1920px"] },
     { width: 1600, columns: columnsByBreakpoint["1600px"] },
-    { width: 1280, columns: columnsByBreakpoint.default },
-    { width: 1024, columns: columnsByBreakpoint.lg },
-    { width: 768, columns: columnsByBreakpoint.md },
+    { width: 1280, columns: columnsByBreakpoint["1280px"] },
+    { width: 1024, columns: columnsByBreakpoint["1024px"] },
+    { width: 768, columns: columnsByBreakpoint["768px"] },
 ];
 
 const masonryBreakpoints = {
     default: columnsByBreakpoint.default,
+    4096: columnsByBreakpoint["4096px"],
     3200: columnsByBreakpoint["3200px"],
     2560: columnsByBreakpoint["2560px"],
     1920: columnsByBreakpoint["1920px"],
     1600: columnsByBreakpoint["1600px"],
-    1280: columnsByBreakpoint.default,
-    1024: columnsByBreakpoint.lg,
-    768: columnsByBreakpoint.md,
+    1280: columnsByBreakpoint["1280px"],
+    1024: columnsByBreakpoint["1024px"],
+    768: columnsByBreakpoint["768px"],
 };
 
 export const MasonryGrid: React.FC<MasonryGridProps> = ({ children }) => {

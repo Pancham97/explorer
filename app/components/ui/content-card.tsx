@@ -35,7 +35,7 @@ type ContentCardProps = {
 };
 
 export const ContentCard = ({
-    data: { title, content, type, url, faviconUrl, id, metadata },
+    data: { title, content, type, url, id, metadata, description },
     onDelete,
 }: ContentCardProps) => {
     const [, setIsLoaded] = React.useState(!metadata?.image);
@@ -55,180 +55,169 @@ export const ContentCard = ({
         );
     }
 
-    let cardVariant;
+    let cardContent;
+    let copyContentMenuItem;
+    let cardHeader;
+    let dialogContent;
+    let dialogTitle;
     if (type === "file") {
-        cardVariant = (
-            <Card>
-                <div className="absolute inset-0 rounded-2xl pointer-events-none z-10">
-                    <div className="absolute top-0 left-0 w-full h-[30%] bg-white/20 rounded-t-2xl blur-[12px] opacity-30" />
-                </div>
-
-                <CardContent>
-                    <img
-                        src={metadata?.image ?? FALLBACK_THUMBNAIL}
-                        alt={title || ""}
-                        className="w-full h-auto object-cover"
-                        onLoad={() => setIsLoaded(true)}
-                        loading="lazy"
-                    />
-                </CardContent>
-                <CardHeader>
-                    <CardTitle>{title}</CardTitle>
-                </CardHeader>
-            </Card>
+        cardContent = (
+            <CardContent className="p-0 relative">
+                <img
+                    src={metadata?.image ?? FALLBACK_THUMBNAIL}
+                    alt={title || ""}
+                    className="w-full h-auto object-cover"
+                    onLoad={() => setIsLoaded(true)}
+                    loading="lazy"
+                />
+            </CardContent>
         );
-    } else {
-        let cardContent;
-        if (type === "text") {
-            cardContent = (
-                <CardContent className="pt-6 overflow-hidden overflow-ellipsis text-wrap line-clamp-5 relative after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:bg-gradient-to-t after:from-card after:via-card/80 after:to-transparent">
-                    {content}
-                </CardContent>
-            );
-        } else if (type === "url" && url && url.length > 0) {
-            let thumbnailImage;
-            if (metadata?.image) {
-                thumbnailImage = (
-                    <img
-                        src={metadata?.image}
-                        alt={title || ""}
-                        className="w-full h-auto object-cover rounded-sm"
-                        loading="lazy"
-                    />
-                );
-            }
 
-            let playIcon;
+        dialogContent = (
+            <img
+                src={metadata?.sunchayAssetUrl ?? FALLBACK_THUMBNAIL}
+                alt={title || ""}
+                className="w-full h-auto object-cover"
+                onLoad={() => setIsLoaded(true)}
+                loading="lazy"
+            />
+        );
+    } else if (type === "url" && url && url.length > 0) {
+        let thumbnailImage;
+        let playIcon;
+
+        if (metadata?.image) {
             if (
                 metadata?.type === "video" ||
                 metadata?.type === "video.other"
             ) {
                 playIcon = (
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <Play className="w-10 h-10 md:w-14 md:h-14 lg:w-20 lg:h-20 rounded-full p-2 md:p-4 lg:p-6 text-white bg-gray-600/50 backdrop-blur-sm" />
+                        <Play className="w-8 h-8 md:w-10 md:h-10 lg:w-14 lg:h-14 rounded-full p-2 md:p-2 lg:p-4 text-white bg-gray-600/50 backdrop-blur-sm" />
                     </div>
                 );
             }
-
-            cardContent = (
-                <CardContent className="p-0 relative">
-                    {thumbnailImage}
+            thumbnailImage = (
+                <>
+                    <img
+                        src={metadata?.image}
+                        alt={title || ""}
+                        className="w-full h-auto object-cover rounded-sm"
+                        loading="lazy"
+                    />
                     {playIcon}
-                    <Link
-                        to={url || ""}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute bottom-1 right-1 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm"
-                    >
-                        {getDomainFromUrl(url)}
-                        <ArrowUpRight />
-                    </Link>
-                </CardContent>
+                </>
             );
         }
 
-        let copyContentMenuItem;
-        if (type === "url" && url && url.length > 0) {
-            copyContentMenuItem = (
-                <DropdownMenuItem
-                    onClick={() => copyToClipboard(url.trim() || "")}
+        cardContent = (
+            <CardContent className="p-0 relative">
+                {thumbnailImage}
+                <Link
+                    to={url || ""}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-1 right-1 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm"
                 >
-                    Copy URL
-                </DropdownMenuItem>
-            );
-        } else if (type === "text" && content && content.length > 0) {
-            copyContentMenuItem = (
-                <DropdownMenuItem
-                    onClick={() => copyToClipboard(content || "")}
-                >
-                    Copy Text
-                </DropdownMenuItem>
-            );
-        }
+                    {getDomainFromUrl(url)}
+                    <ArrowUpRight />
+                </Link>
+            </CardContent>
+        );
 
-        cardVariant = (
-            <div className="relative card-container group">
-                <Dialog>
-                    <DialogTrigger asChild className="cursor-pointer">
-                        <Card className="hover:border-ring transition-[border] duration-300 relative w-full">
-                            {metadata?.logo || title ? (
-                                <CardHeader className="p-4">
-                                    {metadata?.logo && (
-                                        <div className="flex items-center justify-start ">
-                                            <img
-                                                loading="lazy"
-                                                src={metadata?.logo || ""}
-                                                alt={title || ""}
-                                                className="w-auto h-fit max-h-[24px] min-w-[24px] object-contain mb-8 grayscale group-hover:grayscale-0"
-                                            />
-                                        </div>
-                                    )}
-                                    {title && (
-                                        <CardTitle className="font-serif font-normal text-base md:text-lg lg:text-xl line-clamp-2">
-                                            {title ? (
-                                                <span
-                                                    dangerouslySetInnerHTML={{
-                                                        __html: title,
-                                                    }}
-                                                />
-                                            ) : null}
-                                        </CardTitle>
-                                    )}
-                                </CardHeader>
-                            ) : (
-                                <CardHeader className="p-4">
-                                    {
-                                        <CardTitle className="font-serif font-normal text-base md:text-lg lg:text-xl line-clamp-2">
-                                            {
-                                                <span
-                                                    dangerouslySetInnerHTML={{
-                                                        __html: content || "",
-                                                    }}
-                                                />
-                                            }
-                                        </CardTitle>
-                                    }
-                                </CardHeader>
-                            )}
-                            {cardContent}
-                        </Card>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>{title}</DialogTitle>
-                            <DialogDescription>{content}</DialogDescription>
-                        </DialogHeader>
-                    </DialogContent>
-                </Dialog>
-                <DropdownMenu>
-                    <DropdownMenuTrigger
-                        className="absolute top-0 right-0 p-2 hover:shadow-sm invisible group-hover:visible data-[state=open]:visible"
-                        aria-label="Card options"
-                    >
-                        <ChevronDown />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        {copyContentMenuItem}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                            onClick={() => onDelete(id)}
-                            className="text-red-500"
-                        >
-                            Delete
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+        cardHeader = (
+            <CardHeader className="p-4">
+                {metadata?.logo && (
+                    <div className="flex items-center justify-start ">
+                        <img
+                            loading="lazy"
+                            src={metadata?.logo || ""}
+                            alt={title || ""}
+                            className="w-auto h-fit max-h-[24px] min-w-[24px] object-contain mb-8 grayscale group-hover:grayscale-0"
+                        />
+                    </div>
+                )}
+                {title && (
+                    <CardTitle className="font-serif font-normal text-base md:text-lg lg:text-xl line-clamp-2">
+                        {title}
+                    </CardTitle>
+                )}
+            </CardHeader>
+        );
+
+        copyContentMenuItem = (
+            <DropdownMenuItem onClick={() => copyToClipboard(url.trim() || "")}>
+                Copy URL
+            </DropdownMenuItem>
+        );
+
+        dialogTitle = title;
+        dialogContent = (
+            <div className="flex flex-col gap-4">
+                {content}
+                <div className="flex items-center justify-center overflow-scroll max-h-lvh">
+                    {thumbnailImage}
+                </div>
             </div>
         );
+    } else if (type === "text") {
+        cardContent = (
+            <CardContent className="pt-6 overflow-hidden overflow-ellipsis text-wrap line-clamp-5 relative after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:bg-gradient-to-t after:from-card after:via-card/80 after:to-transparent">
+                {content}
+            </CardContent>
+        );
+
+        copyContentMenuItem = (
+            <DropdownMenuItem onClick={() => copyToClipboard(content || "")}>
+                Copy Text
+            </DropdownMenuItem>
+        );
+
+        dialogContent = content;
     }
 
     return (
         <ContextMenu key={id}>
             <ContextMenuTrigger>
                 <div className="break-inside-avoid mb-2 md:mb-3 lg:mb-4">
-                    {cardVariant}
+                    <div className="relative card-container group overflow-hidden">
+                        <Dialog>
+                            <DialogTrigger asChild className="cursor-pointer">
+                                <Card className="hover:border-ring transition-[border] duration-300 relative w-full">
+                                    {cardHeader}
+                                    {cardContent}
+                                </Card>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>{dialogTitle}</DialogTitle>
+                                    <DialogDescription className="overflow-hidden">
+                                        {dialogContent}
+                                    </DialogDescription>
+                                </DialogHeader>
+                            </DialogContent>
+                        </Dialog>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger
+                                className="absolute top-0 right-0 p-2 hover:shadow-sm invisible group-hover:visible data-[state=open]:visible"
+                                aria-label="Card options"
+                            >
+                                <ChevronDown />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem>Edit</DropdownMenuItem>
+                                {copyContentMenuItem}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    onClick={() => onDelete(id)}
+                                    className="text-red-500"
+                                >
+                                    Delete
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
             </ContextMenuTrigger>
             <ContextMenuContent>
