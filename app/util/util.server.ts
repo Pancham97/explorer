@@ -11,17 +11,17 @@ import { User } from "~/session";
 import metascraper from "metascraper";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, CLOUDFRONT_URL } from "~/common/aws";
-
+import { readFileSync } from "fs";
 type Metadata = {
-    lang: Nullable<string>;
     author: Nullable<string>;
-    title: Nullable<string>;
-    publisher: Nullable<string>;
-    image: Nullable<string>;
     description: Nullable<string>;
-    url: Nullable<string>;
-    logo: Nullable<string>;
     id: Nullable<string>;
+    image: Nullable<string>;
+    lang: Nullable<string>;
+    logo: Nullable<string>;
+    publisher: Nullable<string>;
+    title: Nullable<string>;
+    url: Nullable<string>;
 };
 
 type OGResponse = {
@@ -137,6 +137,47 @@ export function isURLRelative(url: string) {
     return !url.startsWith("http://") && !url.startsWith("https://");
 }
 
+function classifyResponse(headers: Headers, url: string) {
+    const contentType = headers.get("content-type") || "";
+    const contentDisposition = headers.get("content-disposition") || "";
+
+    if (contentType.includes("text/html")) {
+        return "website";
+    }
+
+    if (
+        contentDisposition.includes("attachment") ||
+        contentDisposition.includes("filename")
+    ) {
+        return "file";
+    }
+
+    const fileTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+        "image/svg+xml",
+        "image/tiff",
+        "image/bmp",
+        "image/vnd.microsoft.icon",
+        "application/octet-stream",
+    ];
+
+    if (fileTypes.some((ft) => contentType.includes(ft))) {
+        return "file";
+    }
+
+    if (url.match(/\.(pdf|docx?|xlsx?|pptx?|zip|rar|jpeg|jpg|png|mp4|csv)$/i)) {
+        return "file";
+    }
+
+    return "unknown";
+}
+
 export async function getOpenGraphData(requestUrl: URL): Promise<OGResponse> {
     const userAgent = new UserAgents({
         deviceCategory: "desktop",
@@ -207,7 +248,115 @@ export async function savePrimaryInformation(content: string, user: User) {
 
     console.log("primary information ->>>>", content, isURL(content));
 
-    const itemData: typeof itemTable.$inferInsert = {
+    if (isURL(content)) {
+        const response = await fetch(content, {
+            method: "GET",
+        });
+
+        if (response.ok) {
+            console.log("response", response);
+            const type = classifyResponse(response.headers, content);
+            console.log("type", type);
+
+            switch (type) {
+                case "website":
+                    const urlData: typeof itemTable.$inferInsert = {
+                        ...DEFAULT_DB_VALUES,
+                        id,
+                        content,
+                        url: content,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        userId: user.id,
+                        type: "url",
+                    };
+
+                    return db.transaction(async (tx) => {
+                        const existing = await tx
+                            .select()
+                            .from(itemTable)
+                            .where(
+                                or(
+                                    and(
+                                        eq(itemTable.type, "url"),
+                                        eq(itemTable.content, content),
+                                        eq(itemTable.userId, user.id)
+                                    ),
+                                    and(
+                                        eq(itemTable.type, "url"),
+                                        eq(itemTable.url, content),
+                                        eq(itemTable.userId, user.id)
+                                    )
+                                )
+                            )
+                            .limit(1);
+
+                        if (existing[0]) {
+                            await tx
+                                .update(itemTable)
+                                .set({ updatedAt: new Date() })
+                                .where(eq(itemTable.id, existing[0].id));
+
+                            return { id: existing[0].id };
+                        }
+                        console.log("saving item", urlData);
+                        await tx.insert(itemTable).values(urlData);
+                        return { id };
+                    });
+
+                case "file":
+                    const fileData: typeof itemTable.$inferInsert = {
+                        ...DEFAULT_DB_VALUES,
+                        id,
+                        content,
+                        url: content,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        userId: user.id,
+                        type: "file",
+                    };
+
+                    return db.transaction(async (tx) => {
+                        const [existing] = await tx
+                            .selectDistinct()
+                            .from(itemTable)
+                            .where(
+                                or(
+                                    and(
+                                        eq(itemTable.type, "file"),
+                                        eq(itemTable.content, content),
+                                        eq(itemTable.userId, user.id)
+                                    ),
+                                    and(
+                                        eq(itemTable.type, "file"),
+                                        eq(itemTable.url, content),
+                                        eq(itemTable.userId, user.id)
+                                    )
+                                )
+                            )
+                            .limit(1);
+
+                        if (existing) {
+                            await tx
+                                .update(itemTable)
+                                .set({
+                                    updatedAt: new Date(),
+                                    title: "mytitltltltltltlt",
+                                })
+                                .where(eq(itemTable.id, existing.id));
+
+                            return { id: existing.id };
+                        }
+                        console.log("saving file URL", content);
+
+                        await tx.insert(itemTable).values(fileData);
+                        return { id };
+                    });
+            }
+        }
+    }
+
+    const textData: typeof itemTable.$inferInsert = {
         ...DEFAULT_DB_VALUES,
         id,
         content,
@@ -244,8 +393,8 @@ export async function savePrimaryInformation(content: string, user: User) {
 
             return { id: existing[0].id };
         }
-        console.log("saving item", itemData);
-        await tx.insert(itemTable).values(itemData);
+        console.log("saving item", textData);
+        await tx.insert(itemTable).values(textData);
         return { id };
     });
 }
@@ -255,15 +404,52 @@ export async function processItem(id: string, user: User) {
         .selectDistinct()
         .from(itemTable)
         .where(and(eq(itemTable.id, id), eq(itemTable.userId, user.id)));
+
     console.log("processing item", item);
 
     if (!item) {
         return null;
     }
 
-    if (item.type === "file") {
-        return null;
-    } else if (item.url && isURL(item.url)) {
+    if (item.type === "file" && item.url) {
+        console.log("processing file", item.url);
+        try {
+            const response = await fetch(item.url, {
+                method: "GET",
+            });
+
+            const contentType =
+                response.headers.get("content-type") ||
+                "application/octet-stream";
+            const extension = contentType.split("/")[1] || "bin";
+            const arrayBuffer = await response.arrayBuffer();
+            const file = new File([arrayBuffer], `${id}.${extension}`, {
+                type: contentType,
+            });
+            const uploadResult = await uploadFileToS3(file, user);
+            if (uploadResult.success) {
+                console.log("uploading file metadata");
+                return await fetch(
+                    process.env.NODE_ENV === "production"
+                        ? "https://fetcher.sunchay.com/fetch-file-metadata"
+                        : "http://localhost:3000/fetch-file-metadata",
+                    {
+                        method: "POST",
+                        body: JSON.stringify({
+                            sunchayAssetUrl: uploadResult.url,
+                            originalURL: item.url,
+                            userID: user.id,
+                        }),
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+            }
+        } catch (error) {
+            console.error("Failed to upload file", error);
+        }
+    } else if (item.type === "url" && item.url) {
         console.log("processing URL", item.url);
 
         // check if the stripped URL exists in the `metadata` table if it does,
@@ -276,27 +462,27 @@ export async function processItem(id: string, user: User) {
 
         if (existingMetadata[0]?.metadata) {
             const {
+                id: metadataId,
                 image,
                 title,
                 author,
                 lang,
                 publisher,
-                description,
-                logo,
-                id,
-            } = existingMetadata[0].metadata as metascraper.Metadata;
+            } = existingMetadata[0].metadata as {
+                id: string;
+                image: string;
+                title: string;
+                author: string;
+                lang: string;
+                publisher: string;
+                description: string;
+            };
 
             const result = await db
                 .update(itemTable)
                 .set({
-                    description: getDescription(description),
                     content: item.content,
-                    metadata: {
-                        ...existingMetadata[0].metadata,
-                        title: getTitle(title),
-                    },
-                    metadataId: existingMetadata[0].id,
-                    title: getTitle(title),
+                    metadataId,
                     url: item.url,
                     tags: {
                         author,
@@ -351,10 +537,10 @@ async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
 
     try {
         const { metadata }: { metadata: unknown } = await fetch(
-            // process.env.NODE_ENV === "production"
-            // ? // "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata",
-            "https://fetcher.sunchay.com/fetch-metadata",
-            // : "http://localhost:3000/fetch-metadata",
+            process.env.NODE_ENV === "production"
+                ? // "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata",
+                  "https://fetcher.sunchay.com/fetch-url-metadata"
+                : "http://localhost:3000/fetch-url-metadata",
             {
                 method: "POST",
                 body: JSON.stringify({

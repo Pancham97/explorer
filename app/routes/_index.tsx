@@ -32,6 +32,13 @@ type DeleteFetcherData = BaseFetcherData & {
 
 type Item = Awaited<ReturnType<typeof itemsLoader>>[number] & {
     type?: string;
+    metadata: {
+        id: string;
+        createdAt: string;
+        updatedAt: string;
+        strippedUrl: string;
+        metadata: unknown;
+    };
 };
 
 export const meta: MetaFunction = () => {
@@ -57,7 +64,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function Index() {
     const [items, setItems] = React.useState<Item[]>([]);
-
     const [showCard, setShowCard] = React.useState(false);
 
     const { user } = useLoaderData<typeof loader>();
@@ -66,6 +72,10 @@ export default function Index() {
     const formRef = React.useRef<HTMLFormElement>(null);
 
     const itemsFetcher = useFetcher<Item[]>();
+
+    const deleteFetcher = useFetcher<DeleteFetcherData>({
+        key: "delete-fetcher",
+    });
 
     // First load on mount
     React.useEffect(() => {
@@ -78,6 +88,50 @@ export default function Index() {
         }, 7000);
         return () => clearInterval(interval);
     }, []);
+
+    // React.useEffect(() => {
+    //     if (deleteFetcher.state !== "idle") return;
+
+    //     let interval: NodeJS.Timeout | null = null;
+
+    //     const startPolling = () => {
+    //         if (!interval) {
+    //             interval = setInterval(() => {
+    //                 itemsFetcher.load("/resources/items");
+    //             }, 7000);
+    //         }
+    //     };
+
+    //     const stopPolling = () => {
+    //         if (interval) {
+    //             clearInterval(interval);
+    //             interval = null;
+    //         }
+    //     };
+
+    //     const handleVisibilityChange = () => {
+    //         if (document.visibilityState === "visible") {
+    //             startPolling();
+    //         } else {
+    //             stopPolling();
+    //         }
+    //     };
+
+    //     document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    //     // Start polling if visible on mount
+    //     if (document.visibilityState === "visible") {
+    //         startPolling();
+    //     }
+
+    //     return () => {
+    //         stopPolling();
+    //         document.removeEventListener(
+    //             "visibilitychange",
+    //             handleVisibilityChange
+    //         );
+    //     };
+    // }, [deleteFetcher.state, itemsFetcher]);
 
     React.useEffect(() => {
         if (itemsFetcher.data?.length) {
@@ -93,13 +147,10 @@ export default function Index() {
     const customInputFetcher = useFetcher<ContentFetcherData>({
         key: "input-card",
     });
-    const deleteFetcher = useFetcher<DeleteFetcherData>({
-        key: "delete-fetcher",
-    });
 
     React.useEffect(() => {
         const deleteError =
-            deleteFetcher.data?.success === false && deleteFetcher.data?.itemId;
+            !deleteFetcher.data?.success && deleteFetcher.data?.itemId;
         if (deleteError) {
             toast({
                 title: deleteFetcher.data?.message,
@@ -111,7 +162,7 @@ export default function Index() {
 
     React.useEffect(() => {
         const customInputError =
-            customInputFetcher.data?.success === false &&
+            !customInputFetcher.data?.success &&
             customInputFetcher.data?.content;
         if (customInputError) {
             toast({
@@ -124,7 +175,7 @@ export default function Index() {
 
     React.useEffect(() => {
         const pasteError =
-            pasteFetcher.data?.success === false && pasteFetcher.data?.content;
+            !pasteFetcher.data?.success && pasteFetcher.data?.content;
         if (pasteError) {
             toast({
                 title: pasteFetcher.data?.message,
@@ -157,7 +208,14 @@ export default function Index() {
                     userId: user.id,
                     isFavorite: 0,
                     lastAccessedAt: null,
-                    metadata: {},
+                    metadata: {
+                        id: pasteFetcher.data.itemId,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        strippedUrl: "",
+                        metadata: {},
+                    },
+                    metadataId: "",
                     tags: {},
                     url: "",
                 };
@@ -211,7 +269,11 @@ export default function Index() {
     let savedItemsCards;
     if (items.length > 0) {
         savedItemsCards = items
-            .filter((item) => deleteFetcher.formData?.get("itemId") !== item.id)
+            .filter(
+                (item) =>
+                    deleteFetcher.data?.itemId !== item.id &&
+                    deleteFetcher.data?.success
+            )
             .map((item) => (
                 <Motion key={item.id}>
                     <ContentCard

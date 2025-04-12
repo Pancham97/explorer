@@ -23,10 +23,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // Flatten + merge metadata into item
     const flattenedItems = itemsWithMetadata.map(({ item, metadata }) => ({
+        ...item,
+        description: metadata?.metadata?.description || item.content,
         content: item.content,
         id: item.id,
-        metadata: metadata?.metadata ?? {},
-        title: item.title,
+        metadata: metadata?.metadata ?? item.metadata ?? {},
+        title: metadata?.metadata?.title || item.content,
         type: item.type,
         url: item.url,
     }));
