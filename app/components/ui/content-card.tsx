@@ -116,7 +116,7 @@ export const ContentCard = ({
             </CardContent>
         );
 
-        cardLabel = <Label>{title}</Label>;
+        cardLabel = title;
 
         dialogContent = (
             <img
@@ -189,6 +189,8 @@ export const ContentCard = ({
                     )}
                 </CardHeader>
             );
+        } else {
+            cardLabel = title;
         }
 
         copyContentMenuItem = (
@@ -225,8 +227,8 @@ export const ContentCard = ({
     return (
         <ContextMenu key={id}>
             <ContextMenuTrigger>
-                <div className="break-inside-avoid mb-2 md:mb-3 lg:mb-4">
-                    <div className="relative card-container group overflow-hidden">
+                <div className="break-inside-avoid mb-2 md:mb-3 lg:mb-4 flex flex-col gap-2 items-center justify-center">
+                    <div className="relative card-container group overflow-hidden max-w-full">
                         <Dialog>
                             <DialogTrigger asChild className="cursor-pointer">
                                 <Card className="hover:border-ring transition-[border] duration-300 relative w-full">
@@ -263,6 +265,11 @@ export const ContentCard = ({
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
+                    {cardLabel && (
+                        <Label className="text-ellipsis whitespace-nowrap overflow-hidden text-center w-[90%] justify-self-center">
+                            {cardLabel}
+                        </Label>
+                    )}
                 </div>
             </ContextMenuTrigger>
             <ContextMenuContent>
