@@ -20,6 +20,13 @@ export const item = singlestoreTable(
         lastAccessedAt: timestamp("last_accessed_at", { mode: "date" }),
         metadata: json(),
         metadataId: varchar("metadata_id", { length: 255 }),
+        status: singlestoreEnum([
+            "pending",
+            "processing",
+            "partial",
+            "completed",
+            "failed",
+        ]).notNull(),
         tags: json(),
         title: varchar({ length: 360 }),
         type: singlestoreEnum(["file", "url", "text"]).notNull(),

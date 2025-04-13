@@ -1,8 +1,8 @@
 {
   "version": "1",
   "dialect": "singlestore",
-  "id": "ff0fa562-f370-431b-9e84-53d15d495ea5",
-  "prevId": "fda7dd3b-19ac-40c8-a721-2de232c79efc",
+  "id": "57af69a4-f6c4-4a9e-9344-6b95f2d8822c",
+  "prevId": "ff0fa562-f370-431b-9e84-53d15d495ea5",
   "tables": {
     "item": {
       "name": "item",
@@ -62,13 +62,6 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "enum('pending','processing','completed','failed')",
-          "primaryKey": false,
-          "notNull": true,
           "autoincrement": false
         },
         "tags": {
