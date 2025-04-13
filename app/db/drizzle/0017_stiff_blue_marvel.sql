@@ -1,0 +1,1 @@
+ALTER TABLE `item` ADD `status` enum('pending','processing','completed','failed') NOT NULL;

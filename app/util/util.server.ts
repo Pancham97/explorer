@@ -12,17 +12,7 @@ import metascraper from "metascraper";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, CLOUDFRONT_URL } from "~/common/aws";
 import { readFileSync } from "fs";
-type Metadata = {
-    author: Nullable<string>;
-    description: Nullable<string>;
-    id: Nullable<string>;
-    image: Nullable<string>;
-    lang: Nullable<string>;
-    logo: Nullable<string>;
-    publisher: Nullable<string>;
-    title: Nullable<string>;
-    url: Nullable<string>;
-};
+import { FileMetadata, Metadata } from "~/lib/types";
 
 type OGResponse = {
     openGraphData?: OgObject;
@@ -107,6 +97,14 @@ function convertToUTF8(input: string) {
     }
 }
 
+function getTitle(title?: string): string {
+    return convertToUTF8(title || "").slice(0, 360);
+}
+
+function getDescription(description?: string): string {
+    return convertToUTF8(description || "").slice(0, 360);
+}
+
 function isURL(text: string) {
     // Handle empty strings
     if (!text || text.trim() === "") {
@@ -134,7 +132,17 @@ function isURL(text: string) {
 }
 
 export function isURLRelative(url: string) {
-    return !url.startsWith("http://") && !url.startsWith("https://");
+    // Empty or malformed
+    if (!url) return false;
+
+    // Full URL
+    if (/^https?:\/\//i.test(url)) return false;
+
+    // Protocol-relative URL
+    if (/^\/\//.test(url)) return false;
+
+    // It's relative
+    return true;
 }
 
 function classifyResponse(headers: Headers, url: string) {
@@ -175,7 +183,7 @@ function classifyResponse(headers: Headers, url: string) {
         return "file";
     }
 
-    return "unknown";
+    return "website";
 }
 
 export async function getOpenGraphData(requestUrl: URL): Promise<OGResponse> {
@@ -230,145 +238,228 @@ export async function getOpenGraphData(requestUrl: URL): Promise<OGResponse> {
     }
 }
 
-export function prepareUrl(relativePath: Maybe<string>, requestUrl: string) {
-    if (!relativePath) return "";
-    if (isURLRelative(relativePath)) {
-        if (relativePath.startsWith("/")) {
-            return `${new URL(requestUrl).origin}${relativePath}`;
-        } else {
-            return `${new URL(requestUrl).origin}/${relativePath}`;
+export function prepareUrl(path: Maybe<string>, requestUrl: string) {
+    if (!path) return "";
+
+    const url = unescape(path.trim());
+
+    if (!isURLRelative(url)) {
+        // Handles absolute + protocol-relative
+        if (url.startsWith("//")) {
+            const protocol = new URL(requestUrl).protocol;
+            return `${protocol}${url}`;
         }
+        return url;
     }
 
-    return unescape(relativePath);
+    const base = new URL(requestUrl).origin;
+    return url.startsWith("/") ? `${base}${url}` : `${base}/${url}`;
 }
 
-export async function savePrimaryInformation(content: string, user: User) {
+async function saveURLInfo(content: string, user: User, response: Response) {
     const id = ulid();
 
-    console.log("primary information ->>>>", content, isURL(content));
+    const urlData: typeof itemTable.$inferInsert = {
+        ...DEFAULT_DB_VALUES,
+        id,
+        content,
+        url: content,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: user.id,
+        status: "pending",
+        type: "url",
+    };
 
-    if (isURL(content)) {
-        const response = await fetch(content, {
-            method: "GET",
+    return db.transaction(async (tx) => {
+        const [existingURLItem] = await tx
+            .selectDistinct()
+            .from(itemTable)
+            .where(
+                or(
+                    and(
+                        eq(itemTable.type, "url"),
+                        eq(itemTable.content, content),
+                        eq(itemTable.userId, user.id)
+                    ),
+                    and(
+                        eq(itemTable.type, "url"),
+                        eq(itemTable.url, content),
+                        eq(itemTable.userId, user.id)
+                    )
+                )
+            )
+            .limit(1);
+
+        const { result: openGraphDataFromURL } = await ogs({
+            html: await response.text(),
         });
 
-        if (response.ok) {
-            console.log("response", response);
-            const type = classifyResponse(response.headers, content);
-            console.log("type", type);
+        let tempMetadata: Maybe<Metadata>;
 
-            switch (type) {
-                case "website":
-                    const urlData: typeof itemTable.$inferInsert = {
-                        ...DEFAULT_DB_VALUES,
-                        id,
-                        content,
-                        url: content,
-                        createdAt: new Date(),
+        if (openGraphDataFromURL.success) {
+            console.log("openGraphDataFromURL", openGraphDataFromURL);
+            const {
+                author,
+                dcPublisher,
+                favicon,
+                ogArticlePublisher,
+                ogDescription,
+                ogImage,
+                ogLocale,
+                ogLogo,
+                ogSiteName,
+                ogTitle,
+                ogType,
+                ogUrl,
+                twitterTitle,
+            } = openGraphDataFromURL;
+
+            urlData.description = getDescription(ogDescription);
+            urlData.title = getTitle(ogTitle ?? twitterTitle);
+
+            let transformedLogo = prepareUrl(favicon, ogUrl ?? content);
+            if (ogLogo) {
+                transformedLogo = prepareUrl(ogLogo, ogUrl ?? content);
+            }
+
+            tempMetadata = {
+                author: author,
+                description: getDescription(ogDescription),
+                image: ogImage?.[0]?.url,
+                lang: ogLocale,
+                logo: transformedLogo,
+                publisher: ogArticlePublisher ?? dcPublisher,
+                title: getTitle(ogTitle ?? twitterTitle),
+                url: content,
+                type: ogType,
+                siteName: ogSiteName,
+            };
+        }
+
+        if (!existingURLItem) {
+            console.log("saving URL item", urlData);
+
+            const newMetadataItemID = ulid();
+
+            const prefetchedMetadata: typeof metadataTable.$inferInsert = {
+                id: newMetadataItemID,
+                metadata: tempMetadata,
+                strippedUrl: stripURL(content),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+
+            await tx.insert(metadataTable).values(prefetchedMetadata);
+            urlData.metadataId = newMetadataItemID;
+            urlData.status = "partial";
+
+            await tx.insert(itemTable).values(urlData);
+            return { id };
+        }
+
+        if (existingURLItem.metadataId) {
+            const [existingMetadata] = await tx
+                .select({
+                    id: metadataTable.id,
+                    metadata: metadataTable.metadata,
+                })
+                .from(metadataTable)
+                .where(eq(metadataTable.id, existingURLItem.metadataId));
+
+            if (existingMetadata) {
+                await tx
+                    .update(metadataTable)
+                    .set({
+                        metadata: {
+                            ...tempMetadata,
+                            ...(existingMetadata.metadata as Metadata),
+                        },
                         updatedAt: new Date(),
-                        userId: user.id,
-                        type: "url",
-                    };
-
-                    return db.transaction(async (tx) => {
-                        const existing = await tx
-                            .select()
-                            .from(itemTable)
-                            .where(
-                                or(
-                                    and(
-                                        eq(itemTable.type, "url"),
-                                        eq(itemTable.content, content),
-                                        eq(itemTable.userId, user.id)
-                                    ),
-                                    and(
-                                        eq(itemTable.type, "url"),
-                                        eq(itemTable.url, content),
-                                        eq(itemTable.userId, user.id)
-                                    )
-                                )
-                            )
-                            .limit(1);
-
-                        if (existing[0]) {
-                            await tx
-                                .update(itemTable)
-                                .set({ updatedAt: new Date() })
-                                .where(eq(itemTable.id, existing[0].id));
-
-                            return { id: existing[0].id };
-                        }
-                        console.log("saving item", urlData);
-                        await tx.insert(itemTable).values(urlData);
-                        return { id };
-                    });
-
-                case "file":
-                    const fileData: typeof itemTable.$inferInsert = {
-                        ...DEFAULT_DB_VALUES,
-                        id,
-                        content,
-                        url: content,
-                        createdAt: new Date(),
-                        updatedAt: new Date(),
-                        userId: user.id,
-                        type: "file",
-                    };
-
-                    return db.transaction(async (tx) => {
-                        const [existing] = await tx
-                            .selectDistinct()
-                            .from(itemTable)
-                            .where(
-                                or(
-                                    and(
-                                        eq(itemTable.type, "file"),
-                                        eq(itemTable.content, content),
-                                        eq(itemTable.userId, user.id)
-                                    ),
-                                    and(
-                                        eq(itemTable.type, "file"),
-                                        eq(itemTable.url, content),
-                                        eq(itemTable.userId, user.id)
-                                    )
-                                )
-                            )
-                            .limit(1);
-
-                        if (existing) {
-                            await tx
-                                .update(itemTable)
-                                .set({
-                                    updatedAt: new Date(),
-                                    title: "mytitltltltltltlt",
-                                })
-                                .where(eq(itemTable.id, existing.id));
-
-                            return { id: existing.id };
-                        }
-                        console.log("saving file URL", content);
-
-                        await tx.insert(itemTable).values(fileData);
-                        return { id };
-                    });
+                    })
+                    .where(eq(metadataTable.id, existingURLItem.metadataId));
             }
         }
-    }
+
+        await tx
+            .update(itemTable)
+            .set({ updatedAt: new Date(), status: "partial" })
+            .where(eq(itemTable.id, existingURLItem.id));
+
+        return { id: existingURLItem.id };
+    });
+}
+
+async function saveFile(content: string, user: User, response: Response) {
+    const id = ulid();
+
+    const fileData: typeof itemTable.$inferInsert = {
+        ...DEFAULT_DB_VALUES,
+        id,
+        content,
+        url: content,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: user.id,
+        type: "file",
+        status: "pending",
+    };
+
+    return db.transaction(async (tx) => {
+        const [existingFileItem] = await tx
+            .selectDistinct()
+            .from(itemTable)
+            .where(
+                or(
+                    and(
+                        eq(itemTable.type, "file"),
+                        eq(itemTable.content, content),
+                        eq(itemTable.userId, user.id)
+                    ),
+                    and(
+                        eq(itemTable.type, "file"),
+                        eq(itemTable.url, content),
+                        eq(itemTable.userId, user.id)
+                    )
+                )
+            )
+            .limit(1);
+
+        if (existingFileItem) {
+            await tx
+                .update(itemTable)
+                .set({
+                    updatedAt: new Date(),
+                    title: "mytitltltltltltlt",
+                })
+                .where(eq(itemTable.id, existingFileItem.id));
+
+            return { id: existingFileItem.id };
+        }
+        console.log("saving file URL", content);
+
+        await tx.insert(itemTable).values(fileData);
+        return { id };
+    });
+}
+
+async function saveText(content: string, user: User) {
+    const id = ulid();
 
     const textData: typeof itemTable.$inferInsert = {
         ...DEFAULT_DB_VALUES,
         id,
-        content,
+        content: convertToUTF8(content),
         url: isURL(content) ? content : "",
         createdAt: new Date(),
         updatedAt: new Date(),
+        status: "completed",
         userId: user.id,
         type: isURL(content) ? "url" : "text",
     };
 
     return db.transaction(async (tx) => {
-        const existing = await tx
+        const existingTextItem = await tx
             .select()
             .from(itemTable)
             .where(
@@ -385,13 +476,13 @@ export async function savePrimaryInformation(content: string, user: User) {
             )
             .limit(1);
 
-        if (existing[0]) {
+        if (existingTextItem[0]) {
             await tx
                 .update(itemTable)
                 .set({ updatedAt: new Date() })
-                .where(eq(itemTable.id, existing[0].id));
+                .where(eq(itemTable.id, existingTextItem[0].id));
 
-            return { id: existing[0].id };
+            return { id: existingTextItem[0].id };
         }
         console.log("saving item", textData);
         await tx.insert(itemTable).values(textData);
@@ -399,11 +490,88 @@ export async function savePrimaryInformation(content: string, user: User) {
     });
 }
 
-export async function processItem(id: string, user: User) {
+export async function savePrimaryInformation(
+    content: string,
+    user: User
+): Promise<{
+    id: string;
+}> {
+    console.log("primary information ->>>>", content, isURL(content));
+
+    if (!isURL(content)) {
+        return await saveText(content, user);
+    }
+
+    const response = await fetch(content, {
+        method: "GET",
+    });
+
+    if (response.ok) {
+        console.log("response", response);
+        const inferredTypeFromHeaders = classifyResponse(
+            response.headers,
+            content
+        );
+
+        switch (inferredTypeFromHeaders) {
+            case "website":
+                return await saveURLInfo(content, user, response);
+
+            case "file":
+                return await saveFile(content, user, response);
+        }
+    }
+
+    return await saveText(content, user);
+}
+
+async function processFile(item: typeof itemTable.$inferSelect, user: User) {
+    console.log("processing file", item.url);
+    if (!item.url) {
+        return null;
+    }
+    try {
+        const response = await fetch(item.url, {
+            method: "GET",
+        });
+
+        const contentType =
+            response.headers.get("content-type") || "application/octet-stream";
+        const extension = contentType.split("/")[1] || "bin";
+        const arrayBuffer = await response.arrayBuffer();
+        const file = new File([arrayBuffer], `${item.id}.${extension}`, {
+            type: contentType,
+        });
+        const uploadResult = await uploadFileToS3(file, user);
+        if (uploadResult.success) {
+            console.log("uploading file metadata");
+            return await fetch(
+                process.env.NODE_ENV === "production"
+                    ? "https://fetcher.sunchay.com/fetch-file-metadata"
+                    : "http://localhost:3000/fetch-file-metadata",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        sunchayAssetUrl: uploadResult.url,
+                        originalURL: item.url,
+                        userID: user.id,
+                    }),
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+        }
+    } catch (error) {
+        console.error("Failed to upload file", error);
+    }
+}
+
+export async function processItem(itemID: string, user: User) {
     const [item] = await db
         .selectDistinct()
         .from(itemTable)
-        .where(and(eq(itemTable.id, id), eq(itemTable.userId, user.id)));
+        .where(and(eq(itemTable.id, itemID), eq(itemTable.userId, user.id)));
 
     console.log("processing item", item);
 
@@ -412,111 +580,10 @@ export async function processItem(id: string, user: User) {
     }
 
     if (item.type === "file" && item.url) {
-        console.log("processing file", item.url);
-        try {
-            const response = await fetch(item.url, {
-                method: "GET",
-            });
-
-            const contentType =
-                response.headers.get("content-type") ||
-                "application/octet-stream";
-            const extension = contentType.split("/")[1] || "bin";
-            const arrayBuffer = await response.arrayBuffer();
-            const file = new File([arrayBuffer], `${id}.${extension}`, {
-                type: contentType,
-            });
-            const uploadResult = await uploadFileToS3(file, user);
-            if (uploadResult.success) {
-                console.log("uploading file metadata");
-                return await fetch(
-                    process.env.NODE_ENV === "production"
-                        ? "https://fetcher.sunchay.com/fetch-file-metadata"
-                        : "http://localhost:3000/fetch-file-metadata",
-                    {
-                        method: "POST",
-                        body: JSON.stringify({
-                            sunchayAssetUrl: uploadResult.url,
-                            originalURL: item.url,
-                            userID: user.id,
-                        }),
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    }
-                );
-            }
-        } catch (error) {
-            console.error("Failed to upload file", error);
-        }
-    } else if (item.type === "url" && item.url) {
-        console.log("processing URL", item.url);
-
-        // check if the stripped URL exists in the `metadata` table if it does,
-        // then update the item with the new metadata if it doesn't, then create
-        // a new item with the new metadata by processing the URL
-        const existingMetadata = await db
-            .select()
-            .from(metadataTable)
-            .where(eq(metadataTable.strippedUrl, stripURL(item.url)));
-
-        if (existingMetadata[0]?.metadata) {
-            const {
-                id: metadataId,
-                image,
-                title,
-                author,
-                lang,
-                publisher,
-            } = existingMetadata[0].metadata as {
-                id: string;
-                image: string;
-                title: string;
-                author: string;
-                lang: string;
-                publisher: string;
-                description: string;
-            };
-
-            const result = await db
-                .update(itemTable)
-                .set({
-                    content: item.content,
-                    metadataId,
-                    url: item.url,
-                    tags: {
-                        author,
-                        lang,
-                        publisher,
-                    },
-                    updatedAt: new Date(),
-                })
-                .where(
-                    and(
-                        eq(itemTable.id, item.id),
-                        eq(itemTable.userId, user.id)
-                    )
-                )
-                .$dynamic();
-
-            return result;
-        } else {
-            // Fire and forget - don't await the processing
-            processURLItem(item, user).catch((error) => {
-                console.error("Error in background URL processing:", error);
-            });
-
-            console.log("returning immediately");
-            // Return immediately
-            return { id: item.id };
-        }
+        return await processFile(item, user);
+    } else if (item.type === "text") {
+        return await processTextItem(item, user);
     }
-
-    // For text items
-
-    const result = await processTextItem(item, user);
-
-    return result;
 }
 
 export async function deleteItem(itemId: string, user: User) {
@@ -524,63 +591,6 @@ export async function deleteItem(itemId: string, user: User) {
         .delete(itemTable)
         .where(and(eq(itemTable.id, itemId), eq(itemTable.userId, user.id)))
         .$dynamic();
-}
-
-async function processURLItem(item: typeof itemTable.$inferSelect, user: User) {
-    if (!item.url) {
-        return null;
-    }
-
-    // const { openGraphData, metadata } = await getOpenGraphData(
-    //     new URL(item.content)
-    // );
-
-    try {
-        const { metadata }: { metadata: unknown } = await fetch(
-            process.env.NODE_ENV === "production"
-                ? // "https://pnhufpvuik.execute-api.ap-south-1.amazonaws.com/fetch-metadata",
-                  "https://fetcher.sunchay.com/fetch-url-metadata"
-                : "http://localhost:3000/fetch-url-metadata",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    url: item.url.trim(),
-                }),
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            }
-        ).then((res) => res.json());
-
-        if (!metadata) {
-            return null;
-        }
-
-        console.log("metadata -<<<<>>>>>", metadata);
-
-        const result = await db
-            .update(itemTable)
-            .set({
-                content: getDescription(metadata.description),
-                description: getDescription(metadata.description),
-                tags: {},
-                title: getTitle(metadata.title),
-                updatedAt: new Date(),
-                metadataId: metadata.id,
-                url: item.url,
-            })
-            .where(
-                and(eq(itemTable.id, item.id), eq(itemTable.userId, user.id))
-            )
-            .$dynamic();
-
-        console.log("returning result", result);
-        return result;
-    } catch (error) {
-        console.error("Error processing URL", error);
-
-        return null;
-    }
 }
 
 async function processTextItem(
@@ -591,23 +601,15 @@ async function processTextItem(
         .update(itemTable)
         .set({
             content: item.content || "",
-            description: item.description || "",
+            description: getDescription(item.description || ""),
             lastAccessedAt: new Date(),
             metadata: {},
             tags: {},
-            title: item.title || "",
+            title: getTitle(item.title || ""),
             updatedAt: new Date(),
         })
         .where(and(eq(itemTable.id, item.id), eq(itemTable.userId, user.id)))
         .$dynamic();
-}
-
-function getTitle(title?: string): string {
-    return convertToUTF8(title || "").slice(0, 360);
-}
-
-function getDescription(description?: string): string {
-    return convertToUTF8(description || "").slice(0, 360);
 }
 
 export const saveItem = async (textContent: string, user: User) => {

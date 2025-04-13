@@ -24,7 +24,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { ItemWithMetadata } from "~/lib/types";
+import { Label } from "~/components/ui/label";
+import { ItemWithMetadata, Metadata } from "~/lib/types";
 import { copyToClipboard, getDomainFromUrl } from "~/lib/utils";
 
 const FALLBACK_THUMBNAIL = "/opengraph-fallback.jpg";
@@ -34,8 +35,39 @@ type ContentCardProps = {
     onDelete: (id: string) => void;
 };
 
+const shouldShowHeader = (metadata: Metadata) => {
+    if (!metadata || typeof metadata !== "object") {
+        return true;
+    }
+
+    if (!metadata.type) {
+        return true;
+    }
+
+    if (
+        (metadata.type as string).includes("profile") ||
+        (metadata.type as string).includes("video") ||
+        (metadata.type as string).includes("audio") ||
+        (metadata.type as string).includes("document") ||
+        (metadata.type as string).includes("pinterestapp") ||
+        (metadata.type as string).includes("product")
+    ) {
+        return false;
+    }
+    return true;
+};
+
 export const ContentCard = ({
-    data: { title, content, type, url, id, metadata, description },
+    data: {
+        title,
+        content,
+        type,
+        url,
+        id,
+        metadata,
+        fileMetadata,
+        description,
+    },
     onDelete,
 }: ContentCardProps) => {
     const [, setIsLoaded] = React.useState(!metadata?.image);
@@ -56,36 +88,39 @@ export const ContentCard = ({
     }
 
     let cardContent;
-    let copyContentMenuItem;
     let cardHeader;
+    let cardLabel;
+    let copyContentMenuItem;
     let dialogContent;
     let dialogTitle;
     if (type === "file") {
         cardContent = (
             <CardContent className="p-0 relative">
                 <img
-                    src={metadata?.image ?? FALLBACK_THUMBNAIL}
+                    src={fileMetadata?.image ?? FALLBACK_THUMBNAIL}
                     alt={title || ""}
                     className="w-full h-auto object-cover"
                     onLoad={() => setIsLoaded(true)}
                     loading="lazy"
                 />
                 <Link
-                    to={metadata?.sunchayAssetUrl ?? ""}
+                    to={fileMetadata?.sunchayAssetUrl ?? ""}
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     className="absolute bottom-1 right-1 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm"
                 >
-                    {getDomainFromUrl(metadata?.sunchayAssetUrl ?? "")}
+                    {getDomainFromUrl(fileMetadata?.sunchayAssetUrl ?? "")}
                     <ArrowUpRight />
                 </Link>
             </CardContent>
         );
 
+        cardLabel = <Label>{title}</Label>;
+
         dialogContent = (
             <img
-                src={metadata?.image ?? FALLBACK_THUMBNAIL}
+                src={fileMetadata?.image ?? FALLBACK_THUMBNAIL}
                 alt={title || ""}
                 className="w-full h-auto object-cover"
                 onLoad={() => setIsLoaded(true)}
@@ -97,16 +132,14 @@ export const ContentCard = ({
         let playIcon;
 
         if (metadata?.image) {
-            if (
-                metadata?.type === "video" ||
-                metadata?.type === "video.other"
-            ) {
+            if ((metadata?.type as string)?.includes("video")) {
                 playIcon = (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <Play className="w-8 h-8 md:w-10 md:h-10 lg:w-14 lg:h-14 rounded-full p-2 md:p-2 lg:p-4 text-white bg-gray-600/50 backdrop-blur-sm" />
                     </div>
                 );
             }
+
             thumbnailImage = (
                 <>
                     <img
@@ -136,25 +169,27 @@ export const ContentCard = ({
             </CardContent>
         );
 
-        cardHeader = (
-            <CardHeader className="p-4">
-                {metadata?.logo && (
-                    <div className="flex items-center justify-start ">
-                        <img
-                            loading="lazy"
-                            src={metadata?.logo || ""}
-                            alt={title || ""}
-                            className="w-auto h-fit max-h-[24px] min-w-[24px] object-contain mb-8 grayscale group-hover:grayscale-0"
-                        />
-                    </div>
-                )}
-                {title && (
-                    <CardTitle className="font-serif font-normal text-base md:text-lg lg:text-xl line-clamp-2">
-                        {title}
-                    </CardTitle>
-                )}
-            </CardHeader>
-        );
+        if (shouldShowHeader(metadata)) {
+            cardHeader = (
+                <CardHeader className="p-4">
+                    {metadata?.logo && (
+                        <div className="flex items-center justify-start ">
+                            <img
+                                loading="lazy"
+                                src={metadata?.logo || ""}
+                                alt={title || ""}
+                                className="w-auto h-fit max-h-[24px] min-w-[24px] object-contain mb-8 grayscale group-hover:grayscale-0"
+                            />
+                        </div>
+                    )}
+                    {title && (
+                        <CardTitle className="font-serif font-normal text-base md:text-lg lg:text-xl line-clamp-2">
+                            {title}
+                        </CardTitle>
+                    )}
+                </CardHeader>
+            );
+        }
 
         copyContentMenuItem = (
             <DropdownMenuItem onClick={() => copyToClipboard(url.trim() || "")}>

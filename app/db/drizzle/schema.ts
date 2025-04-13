@@ -30,6 +30,13 @@ export const item = singlestoreTable(
         title: varchar({ length: 360 }),
         description: varchar({ length: 360 }),
         metadataId: varchar("metadata_id", { length: 255 }),
+        status: singlestoreEnum([
+            "pending",
+            "processing",
+            "partial",
+            "completed",
+            "failed",
+        ]).notNull(),
     },
     (table) => [primaryKey({ columns: [table.id], name: "item_id" })]
 );

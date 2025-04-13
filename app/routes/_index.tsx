@@ -12,6 +12,7 @@ import { InputCard } from "~/components/ui/input-card";
 import { MasonryGrid } from "~/components/ui/masonry-grid";
 import { Motion } from "~/components/ui/motion";
 import { useToast } from "~/hooks/use-toast";
+import { ItemWithMetadata } from "~/lib/types";
 import type { loader as itemsLoader } from "~/routes/resources.items";
 import { requireUserSession } from "~/session";
 import { deleteItem, saveItem, uploadFileToS3 } from "~/util/util.server";
@@ -63,7 +64,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Index() {
-    const [items, setItems] = React.useState<Item[]>([]);
+    const [items, setItems] = React.useState<ItemWithMetadata[]>([]);
     const [showCard, setShowCard] = React.useState(false);
 
     const { user } = useLoaderData<typeof loader>();
@@ -71,7 +72,7 @@ export default function Index() {
     const pasteRef = React.useRef<HTMLFormElement>(null);
     const formRef = React.useRef<HTMLFormElement>(null);
 
-    const itemsFetcher = useFetcher<Item[]>();
+    const itemsFetcher = useFetcher<ItemWithMetadata[]>();
 
     const deleteFetcher = useFetcher<DeleteFetcherData>({
         key: "delete-fetcher",
@@ -85,53 +86,51 @@ export default function Index() {
     React.useEffect(() => {
         const interval = setInterval(() => {
             itemsFetcher.load("/resources/items");
-        }, 7000);
+        }, 5000);
         return () => clearInterval(interval);
     }, []);
 
-    // React.useEffect(() => {
-    //     if (deleteFetcher.state !== "idle") return;
+    React.useEffect(() => {
+        let interval: NodeJS.Timeout | null = null;
 
-    //     let interval: NodeJS.Timeout | null = null;
+        const startPolling = () => {
+            if (!interval) {
+                interval = setInterval(() => {
+                    itemsFetcher.load("/resources/items");
+                }, 5000);
+            }
+        };
 
-    //     const startPolling = () => {
-    //         if (!interval) {
-    //             interval = setInterval(() => {
-    //                 itemsFetcher.load("/resources/items");
-    //             }, 7000);
-    //         }
-    //     };
+        const stopPolling = () => {
+            if (interval) {
+                clearInterval(interval);
+                interval = null;
+            }
+        };
 
-    //     const stopPolling = () => {
-    //         if (interval) {
-    //             clearInterval(interval);
-    //             interval = null;
-    //         }
-    //     };
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                startPolling();
+            } else {
+                stopPolling();
+            }
+        };
 
-    //     const handleVisibilityChange = () => {
-    //         if (document.visibilityState === "visible") {
-    //             startPolling();
-    //         } else {
-    //             stopPolling();
-    //         }
-    //     };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    //     document.addEventListener("visibilitychange", handleVisibilityChange);
+        // Start polling if visible on mount
+        if (document.visibilityState === "visible") {
+            startPolling();
+        }
 
-    //     // Start polling if visible on mount
-    //     if (document.visibilityState === "visible") {
-    //         startPolling();
-    //     }
-
-    //     return () => {
-    //         stopPolling();
-    //         document.removeEventListener(
-    //             "visibilitychange",
-    //             handleVisibilityChange
-    //         );
-    //     };
-    // }, [deleteFetcher.state, itemsFetcher]);
+        return () => {
+            stopPolling();
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange
+            );
+        };
+    }, [itemsFetcher]);
 
     React.useEffect(() => {
         if (itemsFetcher.data?.length) {
@@ -197,7 +196,7 @@ export default function Index() {
             });
             // Optionally add the file URL to the items list
             if (pasteFetcher.data.itemId) {
-                const newItem: Item = {
+                const newItem: ItemWithMetadata = {
                     id: pasteFetcher.data.itemId,
                     content: pasteFetcher.data.content,
                     type: "file",
@@ -208,10 +207,11 @@ export default function Index() {
                     userId: user.id,
                     isFavorite: 0,
                     lastAccessedAt: null,
+                    status: "pending",
                     metadata: {
                         id: pasteFetcher.data.itemId,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
                         strippedUrl: "",
                         metadata: {},
                     },

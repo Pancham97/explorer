@@ -1,8 +1,8 @@
 {
   "version": "1",
   "dialect": "singlestore",
-  "id": "ff0fa562-f370-431b-9e84-53d15d495ea5",
-  "prevId": "fda7dd3b-19ac-40c8-a721-2de232c79efc",
+  "id": "d35240a4-cf80-41a5-81fe-d521727a702a",
+  "prevId": "57af69a4-f6c4-4a9e-9344-6b95f2d8822c",
   "tables": {
     "item": {
       "name": "item",
@@ -66,7 +66,7 @@
         },
         "status": {
           "name": "status",
-          "type": "enum('pending','processing','completed','failed')",
+          "type": "enum('pending','processing','partial','completed','failed')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
