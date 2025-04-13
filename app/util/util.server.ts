@@ -256,7 +256,7 @@ export function prepareUrl(path: Maybe<string>, requestUrl: string) {
     return url.startsWith("/") ? `${base}${url}` : `${base}/${url}`;
 }
 
-async function saveURLInfo(content: string, user: User, response: Response) {
+async function saveURLInfo(content: string, user: User, response?: Response) {
     const id = ulid();
 
     const urlData: typeof itemTable.$inferInsert = {
@@ -270,6 +270,57 @@ async function saveURLInfo(content: string, user: User, response: Response) {
         status: "pending",
         type: "url",
     };
+
+    let tempMetadata: Maybe<Metadata>;
+    if (response) {
+        const { result: openGraphDataFromURL } = await ogs({
+            html: await response.text(),
+        });
+
+        if (openGraphDataFromURL.success) {
+            console.log("openGraphDataFromURL", openGraphDataFromURL);
+            const {
+                author,
+                dcPublisher,
+                favicon,
+                ogArticlePublisher,
+                ogDescription,
+                ogImage,
+                ogLocale,
+                ogLogo,
+                ogSiteName,
+                ogTitle,
+                ogType,
+                twitterTitle,
+            } = openGraphDataFromURL;
+
+            urlData.description = getDescription(ogDescription);
+            urlData.title = getTitle(ogTitle ?? twitterTitle);
+
+            let transformedLogo = prepareUrl(favicon, content);
+            if (ogLogo) {
+                transformedLogo = prepareUrl(ogLogo, content);
+            }
+
+            console.log(
+                "prepareUrl(ogImage?.[0]?.url, content)",
+                prepareUrl(ogImage?.[0]?.url, content)
+            );
+
+            tempMetadata = {
+                author: author,
+                description: getDescription(ogDescription),
+                image: prepareUrl(ogImage?.[0]?.url, content),
+                lang: ogLocale,
+                logo: transformedLogo,
+                publisher: ogArticlePublisher ?? dcPublisher,
+                title: getTitle(ogTitle ?? twitterTitle),
+                url: content,
+                type: ogType,
+                siteName: ogSiteName,
+            };
+        }
+    }
 
     return db.transaction(async (tx) => {
         const [existingURLItem] = await tx
@@ -291,67 +342,38 @@ async function saveURLInfo(content: string, user: User, response: Response) {
             )
             .limit(1);
 
-        const { result: openGraphDataFromURL } = await ogs({
-            html: await response.text(),
-        });
-
-        let tempMetadata: Maybe<Metadata>;
-
-        if (openGraphDataFromURL.success) {
-            console.log("openGraphDataFromURL", openGraphDataFromURL);
-            const {
-                author,
-                dcPublisher,
-                favicon,
-                ogArticlePublisher,
-                ogDescription,
-                ogImage,
-                ogLocale,
-                ogLogo,
-                ogSiteName,
-                ogTitle,
-                ogType,
-                ogUrl,
-                twitterTitle,
-            } = openGraphDataFromURL;
-
-            urlData.description = getDescription(ogDescription);
-            urlData.title = getTitle(ogTitle ?? twitterTitle);
-
-            let transformedLogo = prepareUrl(favicon, ogUrl ?? content);
-            if (ogLogo) {
-                transformedLogo = prepareUrl(ogLogo, ogUrl ?? content);
-            }
-
-            tempMetadata = {
-                author: author,
-                description: getDescription(ogDescription),
-                image: ogImage?.[0]?.url,
-                lang: ogLocale,
-                logo: transformedLogo,
-                publisher: ogArticlePublisher ?? dcPublisher,
-                title: getTitle(ogTitle ?? twitterTitle),
-                url: content,
-                type: ogType,
-                siteName: ogSiteName,
-            };
-        }
-
         if (!existingURLItem) {
             console.log("saving URL item", urlData);
 
-            const newMetadataItemID = ulid();
+            const [existingMetadata] = await tx
+                .select()
+                .from(metadataTable)
+                .where(eq(metadataTable.strippedUrl, stripURL(content)));
 
-            const prefetchedMetadata: typeof metadataTable.$inferInsert = {
-                id: newMetadataItemID,
-                metadata: tempMetadata,
-                strippedUrl: stripURL(content),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
+            if (existingMetadata) {
+                await tx
+                    .update(metadataTable)
+                    .set({
+                        metadata: tempMetadata,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(metadataTable.id, existingMetadata.id));
 
-            await tx.insert(metadataTable).values(prefetchedMetadata);
-            urlData.metadataId = newMetadataItemID;
+                urlData.metadataId = existingMetadata.id;
+            } else {
+                const newMetadataItemID = ulid();
+                const metadataTableObject: typeof metadataTable.$inferInsert = {
+                    id: newMetadataItemID,
+                    metadata: tempMetadata,
+                    strippedUrl: stripURL(content),
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                };
+
+                await tx.insert(metadataTable).values(metadataTableObject);
+                urlData.metadataId = newMetadataItemID;
+            }
+
             urlData.status = "partial";
 
             await tx.insert(itemTable).values(urlData);
@@ -359,6 +381,8 @@ async function saveURLInfo(content: string, user: User, response: Response) {
         }
 
         if (existingURLItem.metadataId) {
+            const newMetadataItemID = ulid();
+
             const [existingMetadata] = await tx
                 .select({
                     id: metadataTable.id,
@@ -378,6 +402,36 @@ async function saveURLInfo(content: string, user: User, response: Response) {
                         updatedAt: new Date(),
                     })
                     .where(eq(metadataTable.id, existingURLItem.metadataId));
+                await tx
+                    .update(itemTable)
+                    .set({
+                        status: "partial",
+                        metadataId: existingMetadata.id,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(itemTable.id, existingURLItem.id));
+
+                return { id: existingURLItem.id };
+            } else {
+                const metadataTableObject: typeof metadataTable.$inferInsert = {
+                    id: newMetadataItemID,
+                    metadata: tempMetadata,
+                    strippedUrl: stripURL(content),
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                };
+
+                await tx.insert(metadataTable).values(metadataTableObject);
+                await tx
+                    .update(itemTable)
+                    .set({
+                        status: "partial",
+                        metadataId: newMetadataItemID,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(itemTable.id, existingURLItem.id));
+
+                return { id: existingURLItem.id };
             }
         }
 
@@ -450,12 +504,11 @@ async function saveText(content: string, user: User) {
         ...DEFAULT_DB_VALUES,
         id,
         content: convertToUTF8(content),
-        url: isURL(content) ? content : "",
         createdAt: new Date(),
         updatedAt: new Date(),
         status: "completed",
         userId: user.id,
-        type: isURL(content) ? "url" : "text",
+        type: "text",
     };
 
     return db.transaction(async (tx) => {
@@ -482,6 +535,7 @@ async function saveText(content: string, user: User) {
                 .set({ updatedAt: new Date() })
                 .where(eq(itemTable.id, existingTextItem[0].id));
 
+            console.log("returning existing text item", existingTextItem[0].id);
             return { id: existingTextItem[0].id };
         }
         console.log("saving item", textData);
@@ -499,6 +553,7 @@ export async function savePrimaryInformation(
     console.log("primary information ->>>>", content, isURL(content));
 
     if (!isURL(content)) {
+        console.log("saving text");
         return await saveText(content, user);
     }
 
@@ -522,7 +577,8 @@ export async function savePrimaryInformation(
         }
     }
 
-    return await saveText(content, user);
+    console.log("saving URL after failing to fetch response");
+    return await saveURLInfo(content, user);
 }
 
 async function processFile(item: typeof itemTable.$inferSelect, user: User) {
