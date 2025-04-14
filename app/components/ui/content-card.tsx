@@ -266,7 +266,7 @@ export const ContentCard = ({
                         </DropdownMenu>
                     </div>
                     {cardLabel && (
-                        <Label className="text-ellipsis whitespace-nowrap overflow-hidden text-center w-[90%] justify-self-center">
+                        <Label className="text-ellipsis whitespace-nowrap overflow-hidden text-center w-[90%] justify-self-center mb-2">
                             {cardLabel}
                         </Label>
                     )}

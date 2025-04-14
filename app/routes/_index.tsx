@@ -79,18 +79,19 @@ export default function Index() {
     });
 
     React.useEffect(() => {
-        let interval: NodeJS.Timeout | null = null;
+        let timeout: NodeJS.Timeout | null = null;
         let attempt = 0;
-
+        let isFetching = false;
         const POLL_INTERVAL = 5000;
+        const MAX_BACKOFF = 30000;
 
         const fetchItems = async () => {
-            try {
-                // Call the Remix fetcher
-                itemsFetcher.load("/resources/items");
+            if (isFetching) return;
+            isFetching = true;
 
-                // Reset retry count on success
-                attempt = 0;
+            try {
+                await itemsFetcher.load("/resources/items");
+                attempt = 0; // Reset on success
             } catch (err) {
                 const isSuspended =
                     err instanceof TypeError &&
@@ -98,39 +99,36 @@ export default function Index() {
 
                 if (isSuspended) {
                     console.warn("Network suspended. Skipping this poll.");
-                    return;
+                } else {
+                    console.error("Polling error:", err);
+                    attempt++;
                 }
+            } finally {
+                isFetching = false;
 
-                console.error("Polling error:", err);
-
-                // Exponential backoff up to 30 seconds
-                attempt++;
-                const delay = Math.min(30000, POLL_INTERVAL * 2 ** attempt);
-
-                if (interval) {
-                    clearInterval(interval);
-                }
-                interval = setInterval(fetchItems, delay);
+                const delay = Math.min(
+                    POLL_INTERVAL * 2 ** attempt,
+                    MAX_BACKOFF
+                );
+                scheduleNextPoll(delay);
             }
         };
 
-        const startPolling = () => {
-            if (!interval) {
-                fetchItems(); // Initial call
-                interval = setInterval(fetchItems, POLL_INTERVAL);
+        const scheduleNextPoll = (delay: number) => {
+            if (timeout) clearTimeout(timeout);
+            if (document.visibilityState === "visible" && navigator.onLine) {
+                timeout = setTimeout(fetchItems, delay);
             }
         };
 
         const stopPolling = () => {
-            if (interval) {
-                clearInterval(interval);
-                interval = null;
-            }
+            if (timeout) clearTimeout(timeout);
+            timeout = null;
         };
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === "visible" && navigator.onLine) {
-                startPolling();
+                scheduleNextPoll(POLL_INTERVAL);
             } else {
                 stopPolling();
             }
@@ -138,7 +136,7 @@ export default function Index() {
 
         const handleOnline = () => {
             if (document.visibilityState === "visible") {
-                startPolling();
+                scheduleNextPoll(POLL_INTERVAL);
             }
         };
 
@@ -150,9 +148,9 @@ export default function Index() {
         window.addEventListener("online", handleOnline);
         window.addEventListener("offline", handleOffline);
 
-        // Initial poll if eligible
+        // Start polling on mount if visible + online
         if (document.visibilityState === "visible" && navigator.onLine) {
-            startPolling();
+            scheduleNextPoll(POLL_INTERVAL);
         }
 
         return () => {
