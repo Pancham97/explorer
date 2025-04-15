@@ -11,7 +11,6 @@ import { authenticator } from "~/auth/oauth2";
 import { Button } from "~/components/ui/button";
 import GithubLogoIcon from "~/lib/logos/github";
 import GoogleLogoIcon from "~/lib/logos/google";
-import SunchayLogo from "~/lib/logos/sunchay";
 import { sessionStorage } from "~/session";
 
 export async function loader({ request }: LoaderFunctionArgs) {
