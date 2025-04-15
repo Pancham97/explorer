@@ -1,17 +1,25 @@
-import { data, useFetcher, useLoaderData } from "@remix-run/react";
+import {
+    data,
+    useFetcher,
+    useLoaderData,
+    useRouteError,
+} from "@remix-run/react";
 import {
     ActionFunctionArgs,
     LoaderFunctionArgs,
     type MetaFunction,
 } from "@vercel/remix";
-import { Loader2 } from "lucide-react";
+import { Copy, Loader2 } from "lucide-react";
 import React from "react";
+import { Button } from "~/components/ui/button";
 import { ContentCard } from "~/components/ui/content-card";
 import { InProgressCard } from "~/components/ui/in-progress-card";
 import { InputCard } from "~/components/ui/input-card";
 import { MasonryGrid } from "~/components/ui/masonry-grid";
 import { Motion } from "~/components/ui/motion";
 import { useToast } from "~/hooks/use-toast";
+import { INPUT_CARD_FETCHER_KEY } from "~/lib/constants";
+import { PASTE_FETCHER_KEY } from "~/lib/constants";
 import { ItemWithMetadata } from "~/lib/types";
 import type { loader as itemsLoader } from "~/routes/resources.items";
 import { requireUserSession } from "~/session";
@@ -74,9 +82,7 @@ export default function Index() {
 
     const itemsFetcher = useFetcher<ItemWithMetadata[]>();
 
-    const deleteFetcher = useFetcher<DeleteFetcherData>({
-        key: "delete-fetcher",
-    });
+    const deleteFetcher = useFetcher<DeleteFetcherData>();
 
     React.useEffect(() => {
         let timeout: NodeJS.Timeout | null = null;
@@ -93,6 +99,7 @@ export default function Index() {
                 await itemsFetcher.load("/resources/items");
                 attempt = 0; // Reset on success
             } catch (err) {
+                console.log("err", err);
                 const isSuspended =
                     err instanceof TypeError &&
                     err.message.includes("ERR_NETWORK_IO_SUSPENDED");
@@ -127,40 +134,66 @@ export default function Index() {
         };
 
         const handleVisibilityChange = () => {
-            if (document.visibilityState === "visible" && navigator.onLine) {
-                scheduleNextPoll(POLL_INTERVAL);
-            } else {
-                stopPolling();
+            try {
+                if (
+                    document.visibilityState === "visible" &&
+                    navigator.onLine
+                ) {
+                    scheduleNextPoll(POLL_INTERVAL);
+                } else {
+                    stopPolling();
+                }
+            } catch (error) {
+                console.error("Error handling visibility change:", error);
             }
         };
 
         const handleOnline = () => {
-            if (document.visibilityState === "visible") {
-                scheduleNextPoll(POLL_INTERVAL);
+            try {
+                if (document.visibilityState === "visible") {
+                    scheduleNextPoll(POLL_INTERVAL);
+                }
+            } catch (error) {
+                console.error("Error handling online event:", error);
             }
         };
 
         const handleOffline = () => {
-            stopPolling();
+            try {
+                stopPolling();
+            } catch (error) {
+                console.error("Error handling offline event:", error);
+            }
         };
 
-        document.addEventListener("visibilitychange", handleVisibilityChange);
-        window.addEventListener("online", handleOnline);
-        window.addEventListener("offline", handleOffline);
-
-        // Start polling on mount if visible + online
-        if (document.visibilityState === "visible" && navigator.onLine) {
-            scheduleNextPoll(POLL_INTERVAL);
-        }
-
-        return () => {
-            stopPolling();
-            document.removeEventListener(
+        try {
+            document.addEventListener(
                 "visibilitychange",
                 handleVisibilityChange
             );
-            window.removeEventListener("online", handleOnline);
-            window.removeEventListener("offline", handleOffline);
+            window.addEventListener("online", handleOnline);
+            window.addEventListener("offline", handleOffline);
+
+            // Start polling on mount if visible + online
+            if (document.visibilityState === "visible" && navigator.onLine) {
+                scheduleNextPoll(POLL_INTERVAL);
+            }
+        } catch (error) {
+            console.error("Error setting up polling:", error);
+        }
+
+        return () => {
+            try {
+                stopPolling();
+                document.removeEventListener(
+                    "visibilitychange",
+                    handleVisibilityChange
+                );
+                window.removeEventListener("online", handleOnline);
+                window.removeEventListener("offline", handleOffline);
+            } catch (error) {
+                console.error("Error cleaning up polling:", error);
+            }
         };
     }, [itemsFetcher]);
 
@@ -173,10 +206,10 @@ export default function Index() {
     const { toast } = useToast();
 
     const pasteFetcher = useFetcher<ContentFetcherData>({
-        key: "paste-fetcher",
+        key: PASTE_FETCHER_KEY,
     });
-    const customInputFetcher = useFetcher<ContentFetcherData>({
-        key: "input-card",
+    const inputCardFetcher = useFetcher<ContentFetcherData>({
+        key: INPUT_CARD_FETCHER_KEY,
     });
 
     React.useEffect(() => {
@@ -193,16 +226,15 @@ export default function Index() {
 
     React.useEffect(() => {
         const customInputError =
-            !customInputFetcher.data?.success &&
-            customInputFetcher.data?.content;
+            !inputCardFetcher.data?.success && inputCardFetcher.data?.content;
         if (customInputError) {
             toast({
-                title: customInputFetcher.data?.message,
+                title: inputCardFetcher.data?.message,
                 description: "Custom input failed. Please try again.",
                 variant: "destructive",
             });
         }
-    }, [customInputFetcher.data, toast]);
+    }, [inputCardFetcher.data, toast]);
 
     React.useEffect(() => {
         const pasteError =
@@ -363,22 +395,24 @@ export default function Index() {
         );
     };
 
+    const itemsToShow = items.filter(
+        (item) => deleteFetcher.formData?.get("itemId") !== item.id
+    );
+
     let savedItemsCards;
     if (items.length > 0) {
-        savedItemsCards = items
-            .filter((item) => deleteFetcher.data?.itemId !== item.id)
-            .map((item) => (
-                <Motion key={item.id}>
-                    <ContentCard
-                        key={item.id}
-                        data={item}
-                        onDelete={handleDelete}
-                    />
-                </Motion>
-            ));
+        savedItemsCards = itemsToShow.map((item) => (
+            <Motion key={item.id}>
+                <ContentCard
+                    key={item.id}
+                    data={item}
+                    onDelete={handleDelete}
+                />
+            </Motion>
+        ));
     }
 
-    if (!itemsFetcher.data) {
+    if (!itemsFetcher.data && !items.length) {
         return (
             <div className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6">
                 <div className="flex justify-center items-center h-full">
@@ -413,6 +447,30 @@ export default function Index() {
             </pasteFetcher.Form>
         </div>
     );
+}
+
+export function ErrorBoundary() {
+    const error = useRouteError();
+    console.error("Route error:", error);
+    if (error instanceof Error) {
+        return (
+            <div
+                className="error-boundary-route h-screen flex flex-col items-center justify-center"
+                style={{ padding: "2rem", textAlign: "center" }}
+            >
+                <h2>
+                    Hmm... Something unexpected happened. Was your internet
+                    connection lost?
+                </h2>
+                <Button
+                    onClick={() => window.location.reload()}
+                    style={{ padding: "0.5rem 1rem", marginTop: "1rem" }}
+                >
+                    Reload Page
+                </Button>
+            </div>
+        );
+    }
 }
 
 export async function action({ request }: ActionFunctionArgs) {

@@ -161,9 +161,11 @@ export const ContentCard = ({
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-1 right-1 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm"
+                    className="absolute bottom-1 right-1 p-2 flex gap-2 items-center shadow-top-left bg-white dark:bg-black invisible group-hover:visible rounded-sm max-w-[70%] justify-end"
                 >
-                    {getDomainFromUrl(url)}
+                    <Label className="text-ellipsis whitespace-nowrap overflow-hidden cursor-pointer">
+                        {getDomainFromUrl(url)}
+                    </Label>
                     <ArrowUpRight />
                 </Link>
             </CardContent>
@@ -202,10 +204,8 @@ export const ContentCard = ({
         dialogTitle = title;
         dialogContent = (
             <div className="flex flex-col gap-4">
-                {content}
-                <div className="flex items-center justify-center overflow-scroll max-h-lvh">
-                    {thumbnailImage}
-                </div>
+                {description}
+                {thumbnailImage}
             </div>
         );
     } else if (type === "text") {
@@ -239,7 +239,7 @@ export const ContentCard = ({
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>{dialogTitle}</DialogTitle>
-                                    <DialogDescription className="overflow-hidden">
+                                    <DialogDescription>
                                         {dialogContent}
                                     </DialogDescription>
                                 </DialogHeader>

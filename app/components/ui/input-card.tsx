@@ -2,6 +2,13 @@ import { useFetcher } from "@remix-run/react";
 import React from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { Label } from "~/components/ui/label";
+import {
+    COMMAND_KEY_ICON,
+    CTRL_KEY_ICON,
+    ENTER_KEY_ICON,
+    INPUT_CARD_FETCHER_KEY,
+} from "~/lib/constants";
 import { User } from "~/session";
 function useGetCurrentOS() {
     const [isMac, setIsMac] = React.useState(false);
@@ -21,10 +28,32 @@ function useGetCurrentOS() {
     return { isMac, isWin, isLinux };
 }
 
-// command key icon
-const commandKeyIcon = "⌘";
-const enterKeyIcon = "↵";
-const ctrlKeyIcon = "Ctrl";
+const messages = (addressee: string) => [
+    `Nice find, ${addressee}!`,
+    `Great thought, ${addressee}!`,
+    `We've saved it, ${addressee}!`,
+    `Breathe, ${addressee}! It's in.`,
+];
+
+const getShortcutKey = (isMac: boolean) => {
+    if (isMac) {
+        return `${COMMAND_KEY_ICON} + ${ENTER_KEY_ICON}`;
+    }
+    return `${CTRL_KEY_ICON} + ${ENTER_KEY_ICON}`;
+};
+
+type InputCardProps = {
+    formError: string;
+    formRef: React.RefObject<HTMLFormElement>;
+    name: string;
+    intent: string;
+    user: Nullable<User>;
+};
+
+type InputFormProps = InputCardProps & {
+    submitted: boolean;
+    setSubmitted: React.Dispatch<React.SetStateAction<boolean>>;
+};
 
 export const InputCard = ({
     formError,
@@ -32,129 +61,160 @@ export const InputCard = ({
     formRef,
     intent,
     user,
-}: {
-    formError: string;
-    formRef: React.RefObject<HTMLFormElement>;
-    name: string;
-    intent: string;
-    user: Nullable<User>;
-}) => {
-    const fetcher = useFetcher<{
-        success: boolean;
-        message: string;
-        content: string;
-        title: string;
-    }>({ key: "input-card" });
-    const pasteFetcher = useFetcher<{
-        success: boolean;
-        message: string;
-        content: string;
-    }>({ key: "paste-fetcher" });
-    const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
-    const [hasContent, setHasContent] = React.useState(false);
-    const { isMac, isWin, isLinux } = useGetCurrentOS();
-    const isSubmitting = fetcher.state === "submitting";
-
-    const getShortcutKey = () => {
-        if (isMac) {
-            return `${commandKeyIcon} + ${enterKeyIcon}`;
-        }
-        return `${ctrlKeyIcon} + ${enterKeyIcon}`;
-    };
+}: InputCardProps) => {
+    const [submitted, setSubmitted] = React.useState(false);
+    const inputCardFetcher = useFetcher({ key: INPUT_CARD_FETCHER_KEY });
+    const [message, setMessage] = React.useState("");
 
     React.useEffect(() => {
-        if (fetcher.state === "submitting") {
-            formRef.current?.reset();
-            setHasContent(false);
-            textAreaRef.current?.focus();
-        }
-    }, [fetcher.state, formRef, textAreaRef]);
-
-    React.useEffect(() => {
-        if (!pasteFetcher.data?.success && pasteFetcher.data?.content) {
-            formRef.current?.reset();
-            textAreaRef.current?.focus();
-            if (textAreaRef.current) {
-                textAreaRef.current.value = pasteFetcher.data?.content || "";
-                setHasContent(true);
-            }
-        }
-    }, [pasteFetcher.data, formRef, textAreaRef]);
-
-    React.useEffect(() => {
-        if (!fetcher.data?.success && fetcher.data?.content) {
-            formRef.current?.reset();
-            textAreaRef.current?.focus();
-            if (textAreaRef.current) {
-                textAreaRef.current.value = fetcher.data?.content || "";
-                setHasContent(true);
-            }
-        }
-    }, [fetcher.data, formRef, textAreaRef]);
+        setMessage(
+            messages(user?.firstName || "there")[
+                Math.floor(
+                    Math.random() * messages(user?.firstName || "there").length
+                )
+            ]
+        );
+    }, [submitted]);
 
     return (
-        <Card className="transition-all duration-200 ease-in-out hover:shadow-md break-inside-avoid mb-2 md:mb-3 lg:mb-4">
+        <Card className="transition-all duration-200 ease-in-out hover:shadow-md break-inside-avoid mb-2 md:mb-3 lg:mb-4 relative">
             <CardContent className="p-0">
-                <fetcher.Form
-                    method="post"
-                    className="relative w-full min-h-[100px]"
-                    ref={formRef}
+                <InputCardForm
+                    formRef={formRef}
+                    name={name}
+                    intent={intent}
+                    user={user}
+                    formError={formError}
+                    submitted={submitted}
+                    setSubmitted={setSubmitted}
+                />
+                <div
+                    className={`absolute bottom-0 left-0 w-full  pointer-events-none p-4 bg-black dark:bg-white ${
+                        inputCardFetcher.state === "submitting" || submitted
+                            ? "opacity-100 animate-fill-up"
+                            : "opacity-0"
+                    }`}
                 >
-                    <textarea
-                        ref={textAreaRef}
-                        name={name}
-                        placeholder={`What's on your mind, ${
-                            user?.firstName ?? "there"
-                        }?`}
-                        aria-label="Content input"
-                        aria-invalid={Boolean(formError)}
-                        aria-errormessage={
-                            formError ? "content-error" : undefined
-                        }
-                        className={`w-full p-4 bg-transparent border-none resize-none focus:outline-none min-h-[200px] h-auto placeholder:font-serif placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl ${
-                            isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                        disabled={isSubmitting}
-                        onChange={(e) => {
-                            setHasContent(e.target.value.length > 0);
-                        }}
-                        onKeyDown={(e) => {
-                            if (
-                                (isMac && e.metaKey && e.key === "Enter") ||
-                                ((isWin || isLinux) &&
-                                    e.ctrlKey &&
-                                    e.key === "Enter")
-                            ) {
-                                e.preventDefault();
-                                fetcher.submit(formRef.current);
-                            }
-                        }}
-                    />
-
-                    {formError ? (
-                        <div
-                            id="content-error"
-                            className="text-red-500 text-sm p-2"
-                        >
-                            {formError}
-                        </div>
-                    ) : null}
-
-                    <input type="hidden" name="intent" value={intent} />
-
-                    <Button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className={`bottom-0 right-0 w-full rounded-none ${
-                            isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                        } ${hasContent ? "visible" : "invisible"}`}
-                    >
-                        {isSubmitting
-                            ? "Saving..."
-                            : `Save (${getShortcutKey()})`}
-                    </Button>
-                </fetcher.Form>
+                    <Label className="text-white dark:text-black">
+                        {message}
+                    </Label>
+                </div>
             </CardContent>
         </Card>
+    );
+};
+
+const InputCardForm = ({
+    formRef,
+    name,
+    intent,
+    user,
+    formError,
+    submitted,
+    setSubmitted,
+}: InputFormProps) => {
+    const inputRef = React.useRef<HTMLTextAreaElement>(null);
+    const [value, setValue] = React.useState("");
+
+    const inputCardFetcher = useFetcher({ key: INPUT_CARD_FETCHER_KEY });
+
+    const { isMac, isWin, isLinux } = useGetCurrentOS();
+
+    const isSubmitting = inputCardFetcher.state === "submitting";
+
+    React.useEffect(() => {
+        if (isSubmitting) {
+            formRef.current?.reset();
+            inputRef.current?.focus();
+        }
+    }, [inputCardFetcher.state, formRef, inputRef]);
+
+    React.useEffect(() => {
+        if (inputCardFetcher.state === "idle" && submitted) {
+            setValue("");
+            setSubmitted(false);
+        }
+    }, [inputCardFetcher.state, submitted]);
+
+    const handleInputCardKeyDown = (
+        e: React.KeyboardEvent<HTMLTextAreaElement>
+    ) => {
+        if (
+            (isMac && e.metaKey && e.key === "Enter") ||
+            ((isWin || isLinux) && e.ctrlKey && e.key === "Enter")
+        ) {
+            e.preventDefault();
+            inputCardFetcher.submit(formRef.current);
+            setSubmitted(true);
+        }
+    };
+
+    const handleSubmit = () => {
+        if (formRef.current) {
+            inputCardFetcher.submit(formRef.current);
+            setSubmitted(true);
+        }
+    };
+
+    let addressee = "there";
+    if (user?.firstName) {
+        addressee = user.firstName;
+    }
+    let placeholder = `What's on your mind, ${addressee}?`;
+
+    return (
+        <inputCardFetcher.Form
+            method="post"
+            className="relative w-full min-h-[100px]"
+            ref={formRef}
+        >
+            <textarea
+                ref={inputRef}
+                name={name}
+                placeholder={placeholder}
+                aria-label="Content input"
+                aria-invalid={Boolean(formError)}
+                aria-errormessage={formError ? "content-error" : undefined}
+                className={`w-full p-4 bg-transparent border-none resize-none focus:outline-none min-h-[200px] h-auto placeholder:font-serif placeholder:text-base md:placeholder:text-lg lg:placeholder:text-xl transition-opacity ${
+                    isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                disabled={isSubmitting}
+                onKeyDown={handleInputCardKeyDown}
+            />
+
+            {formError ? (
+                <div id="content-error" className="text-red-500 text-sm p-2">
+                    {formError}
+                </div>
+            ) : null}
+
+            <input type="hidden" name="intent" value={intent} />
+
+            <div
+                className={`absolute bottom-0 left-0 right-0 overflow-hidden transition-opacity duration-300 ease-out ${
+                    value.trim()
+                        ? "opacity-100"
+                        : "opacity-0 h-0 pointer-events-none"
+                } ${submitted ? "animate-out" : ""}`}
+            >
+                <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`bottom-0 right-0 w-full rounded-none transition-all duration-300 ${
+                        isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        handleSubmit();
+                    }}
+                >
+                    {isSubmitting
+                        ? "Saving..."
+                        : `Save (${getShortcutKey(isMac)})`}
+                </Button>
+            </div>
+        </inputCardFetcher.Form>
     );
 };

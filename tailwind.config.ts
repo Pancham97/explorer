@@ -80,10 +80,39 @@ export default {
                     "0%, 100%": { opacity: "1" },
                     "50%": { opacity: "0.7" },
                 },
+                "breathing-glow": {
+                    "0%": {
+                        transform: "scale(1)",
+                        opacity: "0.4",
+                    },
+                    "50%": {
+                        transform: "scale(1.03)",
+                        opacity: "0.8",
+                    },
+                    "100%": {
+                        transform: "scale(1)",
+                        opacity: "0",
+                    },
+                },
+                "fill-up": {
+                    "0%": { height: "0%" },
+                    "100%": { height: "100%" },
+                },
+                "expand-fade": {
+                    "0%": { transform: "scaleY(1)", opacity: "1" },
+                    "50%": {
+                        transform: "scaleY(1.05)",
+                        opacity: "0.9",
+                    },
+                    "100%": { transform: "scaleY(1)", opacity: "0" },
+                },
             },
             animation: {
+                "expand-fade": "expand-fade 1s ease-out forwards",
+                "fill-up": "fill-up 1s ease-out forwards",
                 "soft-pulse":
                     "soft-pulse 5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                "breathing-glow": "breathing-glow 1s ease-out forwards",
             },
         },
     },
