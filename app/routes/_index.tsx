@@ -24,6 +24,7 @@ import { ItemWithMetadata } from "~/lib/types";
 import type { loader as itemsLoader } from "~/routes/resources.items";
 import { requireUserSession } from "~/session";
 import { deleteItem, saveItem, uploadFileToS3 } from "~/util/util.server";
+import { Skeleton } from "~/components/ui/skeleton";
 
 type BaseFetcherData = {
     success: boolean;
@@ -61,6 +62,10 @@ export const meta: MetaFunction = () => {
     ];
 };
 
+const randomHeight = (): string => {
+    return `${Math.floor(Math.random() * 100) + 100}px`;
+};
+
 export async function loader({ request }: LoaderFunctionArgs) {
     const session = await requireUserSession(request);
     const user = session.get("user");
@@ -83,6 +88,8 @@ export default function Index() {
     const itemsFetcher = useFetcher<ItemWithMetadata[]>();
 
     const deleteFetcher = useFetcher<DeleteFetcherData>();
+
+    console.log("random height", randomHeight());
 
     React.useEffect(() => {
         let timeout: NodeJS.Timeout | null = null;
@@ -415,14 +422,15 @@ export default function Index() {
     if (!itemsFetcher.data && !items.length) {
         return (
             <div className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6">
-                <div className="flex justify-center items-center h-full">
-                    <div className="flex flex-col items-center">
-                        <Loader2 className="w-10 h-10 animate-spin" />
-                        <p className="text-sm text-muted-foreground">
-                            Loading...
-                        </p>
-                    </div>
-                </div>
+                <MasonryGrid>
+                    {Array.from({ length: 25 }).map((_, index) => (
+                        <Skeleton
+                            key={index}
+                            className={`w-full mb-4`}
+                            style={{ height: randomHeight() }}
+                        />
+                    ))}
+                </MasonryGrid>
             </div>
         );
     }

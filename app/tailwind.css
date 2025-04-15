@@ -101,6 +101,17 @@ body {
             0 8px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1); /* faux border glow */
     }
 
+    .slide-up {
+        transform: translateY(20px);
+        opacity: 0;
+        transition: all 0.7s ease-out;
+    }
+
+    .slide-up-active {
+        transform: translateY(0px);
+        opacity: 1;
+    }
+
     @supports (-webkit-touch-callout: none) {
         .shadow-glass {
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
