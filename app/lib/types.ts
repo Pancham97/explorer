@@ -1,5 +1,4 @@
 import { item as itemTable } from "~/db/schema/item";
-import { metadata as metadataTable } from "~/db/schema/metadata";
 
 export type ItemRow = typeof itemTable.$inferSelect;
 

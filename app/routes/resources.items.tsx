@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "~/db/db.server";
 import { item as itemTable } from "~/db/schema/item";
 import { metadata as metadataTable } from "~/db/schema/metadata";
+import { Metadata } from "~/lib/types";
 import { requireUserSession } from "~/session";
 
 // routes/resources.items.ts
@@ -24,12 +25,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Flatten + merge metadata into item
     const flattenedItems = itemsWithMetadata.map(({ item, metadata }) => ({
         ...item,
-        description: metadata?.metadata?.description || item.content,
+        description:
+            (metadata?.metadata as Metadata)?.description || item.description,
         content: item.content,
         id: item.id,
         metadata: metadata?.metadata ?? {},
         fileMetadata: item.metadata ?? {},
-        title: metadata?.metadata?.title || item.content,
+        title: (metadata?.metadata as Metadata)?.title || item.content,
         type: item.type,
         url: item.url,
     }));
