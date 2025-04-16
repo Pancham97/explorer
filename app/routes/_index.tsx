@@ -89,8 +89,6 @@ export default function Index() {
 
     const deleteFetcher = useFetcher<DeleteFetcherData>();
 
-    console.log("random height", randomHeight());
-
     React.useEffect(() => {
         let timeout: NodeJS.Timeout | null = null;
         let attempt = 0;
@@ -426,7 +424,7 @@ export default function Index() {
                     {Array.from({ length: 25 }).map((_, index) => (
                         <Skeleton
                             key={index}
-                            className={`w-full mb-4`}
+                            className={`w-full break-inside-avoid mb-2 md:mb-3 lg:mb-4`}
                             style={{ height: randomHeight() }}
                         />
                     ))}
