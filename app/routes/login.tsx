@@ -71,8 +71,8 @@ export default function Login() {
                     </div>
                 </div>
             </div>
-            <div className="md:flex-1 justify-center">
-                <div className="px-6 sm:px-10 md:px-14 lg:pr-36 flex-col flex gap-4 max-w-full overflow-hidden">
+            <div className="md:flex-1 justify-center h-full">
+                <div className="px-6 sm:px-10 md:px-14 lg:pr-36 flex-col flex gap-4 max-w-full overflow-hidden h-full justify-center">
                     <h1 className="block md:hidden text-6xl mb-6 font-bold font-serif">
                         {sunchay}
                     </h1>
@@ -85,28 +85,30 @@ export default function Login() {
                             click.
                         </h4>
                     </div>
-                    <Form method="post">
-                        <Button
-                            type="submit"
-                            name="provider"
-                            value="google"
-                            className="w-full"
-                        >
-                            <GoogleLogoIcon />
-                            Continue with Google
-                        </Button>
-                    </Form>
-                    <Form method="post">
-                        <Button
-                            type="submit"
-                            name="provider"
-                            value="github"
-                            className="w-full"
-                        >
-                            <GithubLogoIcon />
-                            Continue with Github
-                        </Button>
-                    </Form>
+                    <div className="flex flex-col gap-4">
+                        <Form method="post">
+                            <Button
+                                type="submit"
+                                name="provider"
+                                value="google"
+                                className="w-full "
+                            >
+                                <GoogleLogoIcon />
+                                Continue with Google
+                            </Button>
+                        </Form>
+                        <Form method="post">
+                            <Button
+                                type="submit"
+                                name="provider"
+                                value="github"
+                                className="w-full "
+                            >
+                                <GithubLogoIcon />
+                                Continue with Github
+                            </Button>
+                        </Form>
+                    </div>
                 </div>
             </div>
         </div>
