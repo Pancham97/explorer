@@ -40,11 +40,17 @@ export default function Login() {
 
     React.useEffect(() => {
         let index = 0;
+
+        setSunchay(sunchayInDifferentLanguages[index]);
+        index++;
+
         const interval = setInterval(() => {
-            setSunchay(sunchayInDifferentLanguages[index]);
-            index = (index + 1) % sunchayInDifferentLanguages.length;
-            if (index === 0) {
+            if (index < sunchayInDifferentLanguages.length) {
                 setSunchay(sunchayInDifferentLanguages[index]);
+                index++;
+            } else {
+                setSunchay(sunchayInDifferentLanguages[0]);
+                index = 0;
                 clearInterval(interval);
             }
         }, 400);

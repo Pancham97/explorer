@@ -9,7 +9,6 @@ import {
     LoaderFunctionArgs,
     type MetaFunction,
 } from "@vercel/remix";
-import { Copy, Loader2 } from "lucide-react";
 import React from "react";
 import { Button } from "~/components/ui/button";
 import { ContentCard } from "~/components/ui/content-card";
@@ -17,14 +16,16 @@ import { InProgressCard } from "~/components/ui/in-progress-card";
 import { InputCard } from "~/components/ui/input-card";
 import { MasonryGrid } from "~/components/ui/masonry-grid";
 import { Motion } from "~/components/ui/motion";
+import { Skeleton } from "~/components/ui/skeleton";
 import { useToast } from "~/hooks/use-toast";
-import { INPUT_CARD_FETCHER_KEY } from "~/lib/constants";
-import { PASTE_FETCHER_KEY } from "~/lib/constants";
+import { INPUT_CARD_FETCHER_KEY, PASTE_FETCHER_KEY } from "~/lib/constants";
 import { ItemWithMetadata } from "~/lib/types";
 import type { loader as itemsLoader } from "~/routes/resources.items";
 import { requireUserSession } from "~/session";
-import { deleteItem, saveItem, uploadFileToS3 } from "~/util/util.server";
-import { Skeleton } from "~/components/ui/skeleton";
+import { deleteItem, saveItem } from "~/util/util.server";
+
+const POLL_INTERVAL = 5000;
+const MAX_BACKOFF = 30000;
 
 type BaseFetcherData = {
     success: boolean;
@@ -86,121 +87,28 @@ export default function Index() {
     const formRef = React.useRef<HTMLFormElement>(null);
 
     const itemsFetcher = useFetcher<ItemWithMetadata[]>();
-
     const deleteFetcher = useFetcher<DeleteFetcherData>();
 
+    // Get fresh data every 30 seconds.
     React.useEffect(() => {
-        let timeout: NodeJS.Timeout | null = null;
-        let attempt = 0;
-        let isFetching = false;
-        const POLL_INTERVAL = 5000;
-        const MAX_BACKOFF = 30000;
-
-        const fetchItems = async () => {
-            if (isFetching) return;
-            isFetching = true;
-
-            try {
-                await itemsFetcher.load("/resources/items");
-                attempt = 0; // Reset on success
-            } catch (err) {
-                console.log("err", err);
-                const isSuspended =
-                    err instanceof TypeError &&
-                    err.message.includes("ERR_NETWORK_IO_SUSPENDED");
-
-                if (isSuspended) {
-                    console.warn("Network suspended. Skipping this poll.");
-                } else {
-                    console.error("Polling error:", err);
-                    attempt++;
-                }
-            } finally {
-                isFetching = false;
-
-                const delay = Math.min(
-                    POLL_INTERVAL * 2 ** attempt,
-                    MAX_BACKOFF
-                );
-                scheduleNextPoll(delay);
+        const interval = setInterval(() => {
+            if (document.visibilityState === "visible") {
+                itemsFetcher.load("/resources/items");
             }
-        };
+        }, 5 * 1000);
 
-        const scheduleNextPoll = (delay: number) => {
-            if (timeout) clearTimeout(timeout);
-            if (document.visibilityState === "visible" && navigator.onLine) {
-                timeout = setTimeout(fetchItems, delay);
-            }
-        };
+        return () => clearInterval(interval);
+    }, []);
 
-        const stopPolling = () => {
-            if (timeout) clearTimeout(timeout);
-            timeout = null;
-        };
-
-        const handleVisibilityChange = () => {
-            try {
-                if (
-                    document.visibilityState === "visible" &&
-                    navigator.onLine
-                ) {
-                    scheduleNextPoll(POLL_INTERVAL);
-                } else {
-                    stopPolling();
-                }
-            } catch (error) {
-                console.error("Error handling visibility change:", error);
-            }
-        };
-
-        const handleOnline = () => {
-            try {
-                if (document.visibilityState === "visible") {
-                    scheduleNextPoll(POLL_INTERVAL);
-                }
-            } catch (error) {
-                console.error("Error handling online event:", error);
-            }
-        };
-
-        const handleOffline = () => {
-            try {
-                stopPolling();
-            } catch (error) {
-                console.error("Error handling offline event:", error);
-            }
-        };
-
-        try {
-            document.addEventListener(
-                "visibilitychange",
-                handleVisibilityChange
-            );
-            window.addEventListener("online", handleOnline);
-            window.addEventListener("offline", handleOffline);
-
-            // Start polling on mount if visible + online
-            if (document.visibilityState === "visible" && navigator.onLine) {
-                scheduleNextPoll(POLL_INTERVAL);
-            }
-        } catch (error) {
-            console.error("Error setting up polling:", error);
+    // When the fetcher comes back with new data,
+    // update our `data` state.
+    React.useEffect(() => {
+        if (itemsFetcher.data) {
+            setItems(itemsFetcher.data);
+        } else {
+            itemsFetcher.load("/resources/items");
         }
-
-        return () => {
-            try {
-                stopPolling();
-                document.removeEventListener(
-                    "visibilitychange",
-                    handleVisibilityChange
-                );
-                window.removeEventListener("online", handleOnline);
-                window.removeEventListener("offline", handleOffline);
-            } catch (error) {
-                console.error("Error cleaning up polling:", error);
-            }
-        };
-    }, [itemsFetcher]);
+    }, [itemsFetcher.data]);
 
     React.useEffect(() => {
         if (itemsFetcher.data?.length) {
