@@ -50,10 +50,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return { user, theme: getTheme() };
 }
 
-export async function action({ request }: ActionFunctionArgs) {
-    return await logout(request);
-}
-
 export function InnerLayout({
     children,
     ssrTheme,
@@ -107,4 +103,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
     return <Outlet />;
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+    return await logout(request);
 }
