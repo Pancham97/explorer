@@ -1,0 +1,1 @@
+ALTER TABLE `item` ADD `is_request_from_dev_environment` tinyint DEFAULT 0 NOT NULL;
