@@ -444,8 +444,8 @@ async function saveURLInfo(content: string, user: User, response?: Response) {
     });
 }
 
-async function saveFile(content: string, user: User, response: Response) {
-    const id = ulid();
+async function saveFile(content: string, user: User, fileID?: string) {
+    const id = fileID ?? ulid();
 
     const fileData: typeof itemTable.$inferInsert = {
         ...DEFAULT_DB_VALUES,
@@ -484,7 +484,6 @@ async function saveFile(content: string, user: User, response: Response) {
                 .update(itemTable)
                 .set({
                     updatedAt: new Date(),
-                    title: "mytitltltltltltlt",
                 })
                 .where(eq(itemTable.id, existingFileItem.id));
 
@@ -546,15 +545,21 @@ async function saveText(content: string, user: User) {
 
 export async function savePrimaryInformation(
     content: string,
-    user: User
+    user: User,
+    fileID?: string
 ): Promise<{
     id: string;
 }> {
-    console.log("primary information ->>>>", content, isURL(content));
+    console.log("primary information ->>>>", content, isURL(content), fileID);
 
     if (!isURL(content)) {
         console.log("saving text");
         return await saveText(content, user);
+    }
+
+    if (fileID) {
+        console.log("saving file");
+        return await saveFile(content, user, fileID);
     }
 
     const response = await fetch(content, {
@@ -573,7 +578,7 @@ export async function savePrimaryInformation(
                 return await saveURLInfo(content, user, response);
 
             case "file":
-                return await saveFile(content, user, response);
+                return await saveFile(content, user);
         }
     }
 
@@ -581,26 +586,20 @@ export async function savePrimaryInformation(
     return await saveURLInfo(content, user);
 }
 
-async function processFile(item: typeof itemTable.$inferSelect, user: User) {
+async function processFile(
+    item: typeof itemTable.$inferSelect,
+    user: User,
+    fileID?: string
+) {
     console.log("processing file", item.url);
     if (!item.url) {
         return null;
     }
-    try {
-        const response = await fetch(item.url, {
-            method: "GET",
-        });
 
-        const contentType =
-            response.headers.get("content-type") || "application/octet-stream";
-        const extension = contentType.split("/")[1] || "bin";
-        const arrayBuffer = await response.arrayBuffer();
-        const file = new File([arrayBuffer], `${item.id}.${extension}`, {
-            type: contentType,
-        });
-        const uploadResult = await uploadFileToS3(file, user);
-        if (uploadResult.success) {
-            console.log("uploading file metadata");
+    try {
+        // If we have a fileID, we have already uploaded the file from the frontend via api/presign-upload
+        if (fileID) {
+            console.log("fetching file metadata for an already uploaded file");
             return await fetch(
                 process.env.NODE_ENV === "production"
                     ? "https://fetcher.sunchay.com/fetch-file-metadata"
@@ -608,8 +607,8 @@ async function processFile(item: typeof itemTable.$inferSelect, user: User) {
                 {
                     method: "POST",
                     body: JSON.stringify({
-                        sunchayAssetUrl: uploadResult.url,
-                        originalURL: item.url,
+                        sunchayAssetUrl: item.url,
+                        originalURL: null,
                         userID: user.id,
                     }),
                     headers: {
@@ -617,13 +616,46 @@ async function processFile(item: typeof itemTable.$inferSelect, user: User) {
                     },
                 }
             );
+        } else {
+            const response = await fetch(item.url, {
+                method: "GET",
+            });
+
+            const contentType =
+                response.headers.get("content-type") ||
+                "application/octet-stream";
+            const extension = contentType.split("/")[1] || "bin";
+            const arrayBuffer = await response.arrayBuffer();
+            const file = new File([arrayBuffer], `${item.id}.${extension}`, {
+                type: contentType,
+            });
+            const uploadResult = await uploadFileToS3(file, user);
+            if (uploadResult.success) {
+                console.log("uploading file metadata");
+                return await fetch(
+                    process.env.NODE_ENV === "production"
+                        ? "https://fetcher.sunchay.com/fetch-file-metadata"
+                        : "http://localhost:3000/fetch-file-metadata",
+                    {
+                        method: "POST",
+                        body: JSON.stringify({
+                            sunchayAssetUrl: uploadResult.url,
+                            originalURL: item.url,
+                            userID: user.id,
+                        }),
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+            }
         }
     } catch (error) {
         console.error("Failed to upload file", error);
     }
 }
 
-export async function processItem(itemID: string, user: User) {
+export async function processItem(itemID: string, user: User, fileID?: string) {
     const [item] = await db
         .selectDistinct()
         .from(itemTable)
@@ -636,7 +668,7 @@ export async function processItem(itemID: string, user: User) {
     }
 
     if (item.type === "file" && item.url) {
-        return await processFile(item, user);
+        return await processFile(item, user, fileID);
     } else if (item.type === "text") {
         return await processTextItem(item, user);
     }
@@ -668,13 +700,21 @@ async function processTextItem(
         .$dynamic();
 }
 
-export const saveItem = async (textContent: string, user: User) => {
+export const saveItem = async (
+    textContent: string,
+    user: User,
+    fileID?: string
+) => {
     try {
         console.log("saving primary information");
-        const savedItemInfo = await savePrimaryInformation(textContent, user);
+        const savedItemInfo = await savePrimaryInformation(
+            textContent,
+            user,
+            fileID
+        );
         console.log("saved primary information", savedItemInfo);
 
-        processItem(savedItemInfo.id, user);
+        processItem(savedItemInfo.id, user, fileID);
         return {
             success: true,
             message: "Item saved successfully!",

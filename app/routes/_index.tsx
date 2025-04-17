@@ -211,8 +211,8 @@ export default function Index() {
         }
     }, [pasteFetcher.data, toast, user]);
 
-    React.useEffect(() => {
-        const handlePaste = async (event: ClipboardEvent) => {
+    const handlePaste = React.useCallback(
+        async (event: ClipboardEvent) => {
             const clipboardData = event.clipboardData;
             const activeElement = document.activeElement;
 
@@ -256,6 +256,7 @@ export default function Index() {
                     // 3. Submit the public URL to Remix backend
                     const formData = new FormData();
                     formData.set("pastedContent", publicUrl);
+                    formData.set("fileID", id);
                     formData.set("intent", "paste");
 
                     pasteFetcher.submit(formData, {
@@ -290,11 +291,14 @@ export default function Index() {
                     event.preventDefault();
                 }
             }
-        };
+        },
+        [pasteFetcher, toast]
+    );
 
+    React.useEffect(() => {
         document.addEventListener("paste", handlePaste);
         return () => document.removeEventListener("paste", handlePaste);
-    }, [pasteFetcher, toast]);
+    }, [handlePaste]);
 
     const handleDelete = async (itemId: string) => {
         deleteFetcher.submit(
@@ -357,6 +361,7 @@ export default function Index() {
             </MasonryGrid>
             <pasteFetcher.Form ref={pasteRef}>
                 <input type="hidden" name="pastedContent" />
+                <input type="hidden" name="fileID" />
                 <input type="hidden" name="intent" value="paste" />
             </pasteFetcher.Form>
         </div>
@@ -408,15 +413,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
         case "paste":
             const pastedContent = formData.get("pastedContent");
+            const fileID = formData.get("fileID");
             if (pastedContent) {
-                return saveItem(pastedContent.toString(), user);
+                return saveItem(
+                    pastedContent.toString(),
+                    user,
+                    fileID?.toString()
+                );
             }
-
-            return {
-                success: false,
-                message: "No content found in paste",
-                content: null,
-            };
 
         case "delete":
             const itemId = formData.get("itemId");
