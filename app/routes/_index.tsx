@@ -185,6 +185,8 @@ export default function Index() {
                     isFavorite: 0,
                     lastAccessedAt: null,
                     status: "pending",
+                    isRequestFromDevEnvironment:
+                        process.env.NODE_ENV === "development" ? 1 : 0,
                     metadata: {
                         author: "",
                         description: "",
