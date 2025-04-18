@@ -10,6 +10,7 @@ import {
     type MetaFunction,
 } from "@vercel/remix";
 import React from "react";
+import { Dropzone } from "~/components/dropzone";
 import { Button } from "~/components/ui/button";
 import { ContentCard } from "~/components/ui/content-card";
 import { InProgressCard } from "~/components/ui/in-progress-card";
@@ -213,6 +214,60 @@ export default function Index() {
         }
     }, [pasteFetcher.data, toast, user]);
 
+    const handleFileUpload = React.useCallback(
+        async (file: File) => {
+            try {
+                // 1. Get presigned S3 upload URL
+                const presignRes = await fetch(
+                    `/api/presign-upload?fileName=${encodeURIComponent(
+                        file.name
+                    )}&fileType=${encodeURIComponent(file.type)}`
+                );
+
+                if (!presignRes.ok) {
+                    throw new Error("Failed to get S3 upload URL");
+                }
+
+                const { signedUrl, publicUrl, id } = await presignRes.json();
+
+                // 2. Upload file directly to S3
+                const uploadRes = await fetch(signedUrl, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": file.type,
+                    },
+                    body: file,
+                });
+
+                if (!uploadRes.ok) {
+                    throw new Error("S3 upload failed");
+                }
+
+                // 3. Submit the public URL to Remix backend
+                const formData = new FormData();
+                formData.set("pastedContent", publicUrl);
+                formData.set("fileID", id);
+                formData.set("intent", "paste");
+
+                pasteFetcher.submit(formData, {
+                    method: "post",
+                });
+
+                return;
+            } catch (error) {
+                console.error("Paste upload failed:", error);
+                toast({
+                    title: "Upload failed",
+                    description:
+                        "There was a problem uploading the file. Please try again.",
+                    variant: "destructive",
+                });
+                return;
+            }
+        },
+        [pasteFetcher, toast]
+    );
+
     const handlePaste = React.useCallback(
         async (event: ClipboardEvent) => {
             const clipboardData = event.clipboardData;
@@ -227,55 +282,7 @@ export default function Index() {
                 event.preventDefault();
                 const file = files[0];
 
-                try {
-                    // 1. Get presigned S3 upload URL
-                    const presignRes = await fetch(
-                        `/api/presign-upload?fileName=${encodeURIComponent(
-                            file.name
-                        )}&fileType=${encodeURIComponent(file.type)}`
-                    );
-
-                    if (!presignRes.ok) {
-                        throw new Error("Failed to get S3 upload URL");
-                    }
-
-                    const { signedUrl, publicUrl, id } =
-                        await presignRes.json();
-
-                    // 2. Upload file directly to S3
-                    const uploadRes = await fetch(signedUrl, {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": file.type,
-                        },
-                        body: file,
-                    });
-
-                    if (!uploadRes.ok) {
-                        throw new Error("S3 upload failed");
-                    }
-
-                    // 3. Submit the public URL to Remix backend
-                    const formData = new FormData();
-                    formData.set("pastedContent", publicUrl);
-                    formData.set("fileID", id);
-                    formData.set("intent", "paste");
-
-                    pasteFetcher.submit(formData, {
-                        method: "post",
-                    });
-
-                    return;
-                } catch (error) {
-                    console.error("Paste upload failed:", error);
-                    toast({
-                        title: "Upload failed",
-                        description:
-                            "There was a problem uploading the file. Please try again.",
-                        variant: "destructive",
-                    });
-                    return;
-                }
+                handleFileUpload(file);
             }
 
             if (pastedText) {
@@ -294,7 +301,7 @@ export default function Index() {
                 }
             }
         },
-        [pasteFetcher, toast]
+        [pasteFetcher, toast, handleFileUpload]
     );
 
     React.useEffect(() => {
@@ -348,25 +355,27 @@ export default function Index() {
     }
 
     return (
-        <div className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6">
-            <MasonryGrid>
-                <InputCard
-                    formRef={formRef}
-                    formError=""
-                    name="content"
-                    intent="custom-input"
-                    key="input-card"
-                    user={user}
-                />
-                {showCard && <InProgressCard setShowCard={setShowCard} />}
-                {savedItemsCards}
-            </MasonryGrid>
-            <pasteFetcher.Form ref={pasteRef}>
-                <input type="hidden" name="pastedContent" />
-                <input type="hidden" name="fileID" />
-                <input type="hidden" name="intent" value="paste" />
-            </pasteFetcher.Form>
-        </div>
+        <Dropzone onFileDropped={handleFileUpload}>
+            <div className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6">
+                <MasonryGrid>
+                    <InputCard
+                        formRef={formRef}
+                        formError=""
+                        name="content"
+                        intent="custom-input"
+                        key="input-card"
+                        user={user}
+                    />
+                    {showCard && <InProgressCard setShowCard={setShowCard} />}
+                    {savedItemsCards}
+                </MasonryGrid>
+                <pasteFetcher.Form ref={pasteRef}>
+                    <input type="hidden" name="pastedContent" />
+                    <input type="hidden" name="fileID" />
+                    <input type="hidden" name="intent" value="paste" />
+                </pasteFetcher.Form>
+            </div>
+        </Dropzone>
     );
 }
 
