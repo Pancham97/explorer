@@ -269,6 +269,7 @@ async function saveURLInfo(content: string, user: User, response?: Response) {
         userId: user.id,
         status: "pending",
         type: "url",
+        isRequestFromDevEnvironment: process.env.NODE_ENV === "development" ? 1 : 0,
     };
 
     let tempMetadata: Maybe<Metadata>;
@@ -407,6 +408,8 @@ async function saveURLInfo(content: string, user: User, response?: Response) {
                     .set({
                         status: "partial",
                         metadataId: existingMetadata.id,
+                        isRequestFromDevEnvironment:
+                            process.env.NODE_ENV === "development" ? 1 : 0,
                         updatedAt: new Date(),
                     })
                     .where(eq(itemTable.id, existingURLItem.id));
@@ -428,6 +431,8 @@ async function saveURLInfo(content: string, user: User, response?: Response) {
                         status: "partial",
                         metadataId: newMetadataItemID,
                         updatedAt: new Date(),
+                        isRequestFromDevEnvironment:
+                            process.env.NODE_ENV === "development" ? 1 : 0,
                     })
                     .where(eq(itemTable.id, existingURLItem.id));
 
@@ -457,6 +462,8 @@ async function saveFile(content: string, user: User, fileID?: string) {
         userId: user.id,
         type: "file",
         status: "pending",
+        isRequestFromDevEnvironment:
+            process.env.NODE_ENV === "development" ? 1 : 0,
     };
 
     return db.transaction(async (tx) => {
