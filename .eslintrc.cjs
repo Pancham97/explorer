@@ -20,7 +20,12 @@ module.exports = {
         commonjs: true,
         es6: true,
     },
-    ignorePatterns: ["!**/.server", "!**/.client", "sst.config.ts"],
+    ignorePatterns: [
+        "!**/.server",
+        "!**/.client",
+        "sst.config.ts",
+        "node_modules",
+    ],
 
     // Base config
     extends: ["eslint:recommended"],
@@ -50,6 +55,10 @@ module.exports = {
                         project: "./tsconfig.json",
                     },
                 },
+            },
+            rules: {
+                "react-hooks/rules-of-hooks": "error",
+                "react-hooks/exhaustive-deps": "error",
             },
         },
 
@@ -90,8 +99,4 @@ module.exports = {
             },
         },
     ],
-    rules: {
-        "react-hooks/rules-of-hooks": "error",
-        "react-hooks/exhaustive-deps": "error",
-    },
 };
