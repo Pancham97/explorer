@@ -9,6 +9,7 @@ import {
     LoaderFunctionArgs,
     type MetaFunction,
 } from "@vercel/remix";
+import { Loader2, Paperclip } from "lucide-react";
 import React from "react";
 import { Dropzone } from "~/components/dropzone";
 import { Button } from "~/components/ui/button";
@@ -78,8 +79,35 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return data({ user });
 }
 
+const FloatingButton = ({
+    onClick,
+    uploading,
+}: {
+    onClick: () => void;
+    uploading: boolean;
+}) => (
+    <Button
+        className="fixed bottom-4 right-4 z-[10000]"
+        onClick={onClick}
+        disabled={uploading}
+    >
+        {uploading ? (
+            <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Uploading...
+            </>
+        ) : (
+            <>
+                <Paperclip className="w-4 h-4" />
+                Upload file
+            </>
+        )}
+    </Button>
+);
+
 export default function Index() {
     const [items, setItems] = React.useState<ItemWithMetadata[]>([]);
+    const [uploading, setUploading] = React.useState(false);
     const [showCard, setShowCard] = React.useState(false);
 
     const { user } = useLoaderData<typeof loader>();
@@ -105,14 +133,6 @@ export default function Index() {
     // update our `data` state.
     React.useEffect(() => {
         if (itemsFetcher.data) {
-            setItems(itemsFetcher.data);
-        } else {
-            itemsFetcher.load("/resources/items");
-        }
-    }, [itemsFetcher.data]);
-
-    React.useEffect(() => {
-        if (itemsFetcher.data?.length) {
             setItems(itemsFetcher.data);
         }
     }, [itemsFetcher.data]);
@@ -216,6 +236,7 @@ export default function Index() {
 
     const handleFileUpload = React.useCallback(
         async (file: File) => {
+            setUploading(true);
             try {
                 // 1. Get presigned S3 upload URL
                 const presignRes = await fetch(
@@ -228,7 +249,8 @@ export default function Index() {
                     throw new Error("Failed to get S3 upload URL");
                 }
 
-                const { signedUrl, publicUrl, id } = await presignRes.json();
+                const { signedUrl, publicUrl, id, originalFileName } =
+                    await presignRes.json();
 
                 // 2. Upload file directly to S3
                 const uploadRes = await fetch(signedUrl, {
@@ -248,7 +270,7 @@ export default function Index() {
                 formData.set("pastedContent", publicUrl);
                 formData.set("fileID", id);
                 formData.set("intent", "paste");
-
+                formData.set("originalFileName", originalFileName);
                 pasteFetcher.submit(formData, {
                     method: "post",
                 });
@@ -263,6 +285,8 @@ export default function Index() {
                     variant: "destructive",
                 });
                 return;
+            } finally {
+                setUploading(false);
             }
         },
         [pasteFetcher, toast]
@@ -338,6 +362,15 @@ export default function Index() {
         ));
     }
 
+    const openFileSelector = () => {
+        const input = document.querySelector(
+            'input[type="file"]'
+        ) as HTMLInputElement;
+        if (input) {
+            input.click();
+        }
+    };
+
     if (!itemsFetcher.data && !items.length) {
         return (
             <div className="min-h-screen px-4 md:px-6 pb-6 pt-2 md:pt-6">
@@ -369,9 +402,14 @@ export default function Index() {
                     {showCard && <InProgressCard setShowCard={setShowCard} />}
                     {savedItemsCards}
                 </MasonryGrid>
+                <FloatingButton
+                    onClick={openFileSelector}
+                    uploading={uploading}
+                />
                 <pasteFetcher.Form ref={pasteRef}>
                     <input type="hidden" name="pastedContent" />
                     <input type="hidden" name="fileID" />
+                    <input type="hidden" name="originalFileName" />
                     <input type="hidden" name="intent" value="paste" />
                 </pasteFetcher.Form>
             </div>
@@ -425,11 +463,13 @@ export async function action({ request }: ActionFunctionArgs) {
         case "paste":
             const pastedContent = formData.get("pastedContent");
             const fileID = formData.get("fileID");
+            const originalFileName = formData.get("originalFileName");
             if (pastedContent) {
                 return saveItem(
                     pastedContent.toString(),
                     user,
-                    fileID?.toString()
+                    fileID?.toString(),
+                    originalFileName?.toString()
                 );
             }
 

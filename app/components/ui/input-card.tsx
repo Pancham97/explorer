@@ -10,6 +10,7 @@ import {
     INPUT_CARD_FETCHER_KEY,
 } from "~/lib/constants";
 import { User } from "~/session";
+
 function useGetCurrentOS() {
     const [isMac, setIsMac] = React.useState(false);
     const [isWin, setIsWin] = React.useState(false);

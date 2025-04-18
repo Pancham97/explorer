@@ -1,4 +1,3 @@
-// frontend/app/components/Dropzone.tsx
 import React, { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Label } from "~/components/ui/label";
@@ -33,17 +32,14 @@ export function Dropzone({
             className={
                 "rounded-lg h-full w-full " +
                 (isDragActive
-                    ? "border-2 border-dashed border-blue-500 bg-blue-200"
+                    ? "border-2 border-dashed border-blue-500 bg-blue-200 dark:bg-blue-900"
                     : "")
             }
             style={{ transition: "background-color 0.2s ease" }}
         >
             <input {...getInputProps()} />
             <div className="text-center text-md">
-                <Label>
-                    {/* {isDragActive && "Drop your file here"} */}
-                    {true && "Drop your file here"}
-                </Label>
+                <Label>{isDragActive && "Drop your file here"}</Label>
             </div>
             {children}
         </div>

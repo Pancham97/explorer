@@ -1,3 +1,11 @@
+# Apr 18, 2025
+
+- [X] Efficient thumbnail storage
+- [X] Efficient screenshot storage
+- [ ] Add search
+- [ ] AI generated tags
+- [ ] Better queueing system
+
 # Apr 09, 2025
 
 - [X] Add polling instead of server sent events as Vercel has a limit of 10 seconds for function execution and increasing the time will only exhaust the free credits
@@ -9,13 +17,10 @@
   - [X] Create a new security group
   - [X] Allow inbound traffic on port 3000
   - [X] Allow all traffic on port 3000
-- [ ] Add support for file uploads
+- [X] Add support for file uploads
   - [X] Add support for files via URL
-  - [ ] Add support for files via direct upload
+  - [X] Add support for files via direct upload
 - [X] Fix the masonry grid layout
-- [ ] Add search
-- [ ] AI generated tags
-- [ ] Better queueing system
 
 # Mar 25, 2025
 
