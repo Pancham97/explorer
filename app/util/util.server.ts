@@ -269,7 +269,8 @@ async function saveURLInfo(content: string, user: User, response?: Response) {
         userId: user.id,
         status: "pending",
         type: "url",
-        isRequestFromDevEnvironment: process.env.NODE_ENV === "development" ? 1 : 0,
+        isRequestFromDevEnvironment:
+            process.env.NODE_ENV === "development" ? 1 : 0,
     };
 
     let tempMetadata: Maybe<Metadata>;
@@ -449,7 +450,12 @@ async function saveURLInfo(content: string, user: User, response?: Response) {
     });
 }
 
-async function saveFile(content: string, user: User, fileID?: string) {
+async function saveFile(
+    content: string,
+    user: User,
+    fileID?: string,
+    originalFileName?: string
+) {
     const id = fileID ?? ulid();
 
     const fileData: typeof itemTable.$inferInsert = {
@@ -553,7 +559,8 @@ async function saveText(content: string, user: User) {
 export async function savePrimaryInformation(
     content: string,
     user: User,
-    fileID?: string
+    fileID?: string,
+    originalFileName?: string
 ): Promise<{
     id: string;
 }> {
@@ -566,7 +573,7 @@ export async function savePrimaryInformation(
 
     if (fileID) {
         console.log("saving file");
-        return await saveFile(content, user, fileID);
+        return await saveFile(content, user, fileID, originalFileName);
     }
 
     const response = await fetch(content, {
@@ -596,7 +603,8 @@ export async function savePrimaryInformation(
 async function processFile(
     item: typeof itemTable.$inferSelect,
     user: User,
-    fileID?: string
+    fileID?: string,
+    originalFileName?: string
 ) {
     console.log("processing file", item.url);
     if (!item.url) {
@@ -617,6 +625,7 @@ async function processFile(
                         sunchayAssetUrl: item.url,
                         originalURL: null,
                         userID: user.id,
+                        originalFileName,
                     }),
                     headers: {
                         "Content-Type": "application/json",
@@ -649,6 +658,7 @@ async function processFile(
                             sunchayAssetUrl: uploadResult.url,
                             originalURL: item.url,
                             userID: user.id,
+                            originalFileName,
                         }),
                         headers: {
                             "Content-Type": "application/json",
@@ -662,7 +672,12 @@ async function processFile(
     }
 }
 
-export async function processItem(itemID: string, user: User, fileID?: string) {
+export async function processItem(
+    itemID: string,
+    user: User,
+    fileID?: string,
+    originalFileName?: string
+) {
     const [item] = await db
         .selectDistinct()
         .from(itemTable)
@@ -675,7 +690,7 @@ export async function processItem(itemID: string, user: User, fileID?: string) {
     }
 
     if (item.type === "file" && item.url) {
-        return await processFile(item, user, fileID);
+        return await processFile(item, user, fileID, originalFileName);
     } else if (item.type === "text") {
         return await processTextItem(item, user);
     }
@@ -710,18 +725,20 @@ async function processTextItem(
 export const saveItem = async (
     textContent: string,
     user: User,
-    fileID?: string
+    fileID?: string,
+    originalFileName?: string
 ) => {
     try {
         console.log("saving primary information");
         const savedItemInfo = await savePrimaryInformation(
             textContent,
             user,
-            fileID
+            fileID,
+            originalFileName
         );
         console.log("saved primary information", savedItemInfo);
 
-        processItem(savedItemInfo.id, user, fileID);
+        processItem(savedItemInfo.id, user, fileID, originalFileName);
         return {
             success: true,
             message: "Item saved successfully!",
@@ -740,7 +757,7 @@ export const saveItem = async (
 export async function uploadFileToS3(file: File, user: User) {
     const id = ulid();
     const fileExtension = file.name.split(".").pop();
-    const key = `public/uploads/${user.id}/${id}.${fileExtension}`;
+    const key = `private/uploads/${user.id}/${id}.${fileExtension}`;
 
     try {
         const arrayBuffer = await file.arrayBuffer();

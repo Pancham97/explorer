@@ -185,7 +185,11 @@ const URLCard = ({ data, onDelete }: ContentCardProps) => {
     }
 
     const cardContent = (
-        <CardContent className="p-0 relative">
+        <CardContent
+            className={`p-0 relative ${
+                shouldShowHeader(metadata) ? "max-h-60" : "max-h-full"
+            }`}
+        >
             {thumbnailImage}
             <Link
                 to={url || ""}

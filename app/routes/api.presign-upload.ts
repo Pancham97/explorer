@@ -23,7 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     const id = ulid();
     const extension = fileName.split(".").pop();
-    const key = `public/uploads/${user.id}/${id}.${extension}`;
+    const key = `private/uploads/${user.id}/${id}.${extension}`;
 
     const command = new PutObjectCommand({
         Bucket: process.env.AWS_S3_BUCKET!,
@@ -42,6 +42,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             signedUrl,
             publicUrl,
             id,
+            originalFileName: fileName,
         }),
         {
             headers: {
