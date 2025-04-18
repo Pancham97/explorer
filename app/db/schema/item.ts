@@ -17,6 +17,9 @@ export const item = singlestoreTable(
         description: varchar({ length: 360 }),
         id: varchar({ length: 255 }).notNull(),
         isFavorite: tinyint("is_favorite").default(0).notNull(),
+        isRequestFromDevEnvironment: tinyint("is_request_from_dev_environment")
+            .default(0)
+            .notNull(),
         lastAccessedAt: timestamp("last_accessed_at", { mode: "date" }),
         metadata: json(),
         metadataId: varchar("metadata_id", { length: 255 }),
