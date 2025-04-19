@@ -1,6 +1,7 @@
 import { Link } from "@remix-run/react";
 import { ArrowUpRight, ChevronDown, Play } from "lucide-react";
 import * as React from "react";
+import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
     ContextMenu,
@@ -25,6 +26,9 @@ import {
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Label } from "~/components/ui/label";
+import { TooltipProvider } from "~/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "~/components/ui/tooltip";
+import { TooltipTrigger } from "~/components/ui/tooltip";
 import { ItemWithMetadata, Metadata } from "~/lib/types";
 import { copyToClipboard, getDomainFromUrl } from "~/lib/utils";
 
@@ -57,8 +61,16 @@ const shouldShowHeader = (metadata: Metadata) => {
     return true;
 };
 
+type Tag = {
+    colors?: string[];
+    colorCodes?: string[];
+    keywords?: string[];
+    text?: string[];
+    primaryColorHexCode?: string;
+};
+
 const FileCard = ({ data, onDelete }: ContentCardProps) => {
-    const { metadata, id, title, url, fileMetadata } = data;
+    const { metadata, id, title, tags, url, fileMetadata } = data;
     const [, setIsLoaded] = React.useState(!metadata?.image);
 
     const cardContent = (
@@ -85,15 +97,82 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
 
     const cardLabel = title;
 
-    const dialogContent = (
-        <div className="">
-            <img
-                src={fileMetadata?.image ?? FALLBACK_THUMBNAIL}
-                alt={title || ""}
-                className="w-full h-auto object-cover"
-                onLoad={() => setIsLoaded(true)}
-                loading="lazy"
-            />
+    let colors;
+    if (tags) {
+        colors = (tags as Maybe<Tag>)?.colorCodes?.map((color) => (
+            <TooltipProvider key={color}>
+                <Tooltip
+                    delayDuration={100}
+                    defaultOpen={false}
+                    disableHoverableContent
+                >
+                    <TooltipTrigger
+                        className="w-6 h-6 mx-[-0.25rem] z-50 transition-all duration-200 ease-in-out group-hover:mx-1 rounded-full hover:scale-150 cursor-pointer border-[0.5px] border-black dark:border-white"
+                        style={{ backgroundColor: color }}
+                        onClick={() => copyToClipboard(color)}
+                    ></TooltipTrigger>
+                    <TooltipContent>{color}</TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        ));
+    }
+
+    let textInference;
+    if ((tags as Maybe<Tag>)?.text && (tags as Maybe<Tag>)?.text?.length) {
+        textInference = (
+            <div className="my-6">
+                <p className="text-lg font-bold mb-2">Text</p>
+                <div className="flex flex-wrap gap-2">
+                    {(tags as Maybe<Tag>)?.text?.map((text) => (
+                        <Badge variant="secondary" key={text}>
+                            {text}
+                        </Badge>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+    const dialogDescription = (
+        <div className="flex flex-col gap-2 flex-grow">
+            <div className="flex gap-2 h-full w-full">
+                <div
+                    className={"w-full h-full flex-[3]"}
+                    style={{
+                        backgroundColor: (
+                            tags as Maybe<Tag>
+                        )?.primaryColorHexCode
+                            ?.toString()
+                            .toLowerCase(),
+                    }}
+                >
+                    <img
+                        src={
+                            fileMetadata?.sunchayAssetUrl ??
+                            fileMetadata?.image ??
+                            FALLBACK_THUMBNAIL
+                        }
+                        alt={title || ""}
+                        className="object-contain h-[70vh] w-auto mx-auto"
+                        onLoad={() => setIsLoaded(true)}
+                        loading="lazy"
+                    />
+                </div>
+                <div className="w-[0.5px] h-full bg-gray-300" />
+                <div className="flex-[1] px-4">
+                    <div className="">
+                        <p className="text-lg font-bold mb-2">Keywords</p>
+                        <div className="flex flex-wrap gap-2">
+                            {(tags as Maybe<Tag>)?.keywords?.map((keyword) => (
+                                <Badge variant="secondary" key={keyword}>
+                                    {keyword}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                    {textInference}
+                </div>
+            </div>
+            <div className="flex group transition-all">{colors}</div>
         </div>
     );
 
@@ -108,8 +187,13 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
                                     {cardContent}
                                 </Card>
                             </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>{dialogContent}</DialogHeader>
+                            <DialogContent className="max-h-[85vh] overflow-y-auto">
+                                <DialogHeader>
+                                    {/* <DialogTitle>{title}</DialogTitle> */}
+                                    <DialogDescription asChild>
+                                        {dialogDescription}
+                                    </DialogDescription>
+                                </DialogHeader>
                             </DialogContent>
                         </Dialog>
                         <DropdownMenu>
@@ -396,7 +480,12 @@ const TextCard = ({ data, onDelete }: ContentCardProps) => {
 };
 
 export const ContentCard = ({ data, onDelete }: ContentCardProps) => {
-    if (data.type === "file") {
+    if (
+        data.type === "file" ||
+        data.type === "image" ||
+        data.type === "video" ||
+        data.type === "document"
+    ) {
         return <FileCard data={data} onDelete={onDelete} />;
     } else if (data.type === "url" && data.url && data.url.length > 0) {
         return <URLCard data={data} onDelete={onDelete} />;

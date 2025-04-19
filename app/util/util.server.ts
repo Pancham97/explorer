@@ -32,6 +32,47 @@ const DEFAULT_DB_VALUES: Partial<typeof itemTable.$inferInsert> = {
     url: "",
 };
 
+const imageTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/svg+xml",
+    "image/tiff",
+    "image/bmp",
+    "image/vnd.microsoft.icon",
+    "image/heic",
+    "image/heif",
+];
+
+const videoTypes = [
+    "video/mp4",
+    "video/mov",
+    "video/avi",
+    "video/webm",
+    "video/mkv",
+];
+
+const fileTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/octet-stream",
+    "application/zip",
+    "application/x-7z-compressed",
+    "application/x-rar-compressed",
+    "application/x-tar",
+    "application/x-gzip",
+    "application/x-bzip2",
+    "application/x-bzip",
+    "application/x-compressed",
+    "application/x-compressed-zip",
+    "application/x-compressed-tar",
+    "application/x-compressed-gzip",
+    "application/x-compressed-bzip2",
+    "application/x-compressed-bzip",
+];
+
 /**
  * Keep this method in sync with the one in the metadata service
  */
@@ -153,29 +194,22 @@ function classifyResponse(headers: Headers, url: string) {
         return "website";
     }
 
+    if (imageTypes.some((ft) => contentType.includes(ft))) {
+        return "image";
+    }
+
+    if (videoTypes.some((ft) => contentType.includes(ft))) {
+        return "video";
+    }
+
+    if (fileTypes.some((ft) => contentType.includes(ft))) {
+        return "document";
+    }
+
     if (
         contentDisposition.includes("attachment") ||
         contentDisposition.includes("filename")
     ) {
-        return "file";
-    }
-
-    const fileTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/gif",
-        "image/svg+xml",
-        "image/tiff",
-        "image/bmp",
-        "image/vnd.microsoft.icon",
-        "application/octet-stream",
-    ];
-
-    if (fileTypes.some((ft) => contentType.includes(ft))) {
         return "file";
     }
 
@@ -450,11 +484,68 @@ async function saveURLInfo(content: string, user: User, response?: Response) {
     });
 }
 
+// Created a copy from `__index.tsx`. Need to find a way to share this between the two files.
+const getFileCategory = (fileExtension: string | undefined) => {
+    if (!fileExtension) {
+        return "file";
+    }
+
+    switch (fileExtension) {
+        case "jpg":
+        case "jpeg":
+        case "png":
+        case "heic":
+        case "heif":
+        case "gif":
+        case "webp":
+            return "image";
+
+        case "mp4":
+        case "mov":
+        case "mkv":
+        case "avi":
+        case "webm":
+            return "video";
+
+        case "pdf":
+        case "doc":
+        case "docx":
+        case "xls":
+        case "xlsx":
+        case "ppt":
+        case "pptx":
+        case "txt":
+        case "md":
+        case "csv":
+        case "json":
+        case "xml":
+        case "yaml":
+        case "yml":
+        case "toml":
+        case "ini":
+        case "conf":
+        case "cfg":
+        case "config":
+        case "log":
+        case "sh":
+        case "bash":
+        case "zsh":
+        case "fish":
+        case "bat":
+        case "ps1":
+            return "document";
+
+        default:
+            return "file";
+    }
+};
+
 async function saveFile(
     content: string,
     user: User,
     fileID?: string,
-    originalFileName?: string
+    originalFileName?: string,
+    inferredTypeFromHeaders?: string
 ) {
     const id = fileID ?? ulid();
 
@@ -466,7 +557,10 @@ async function saveFile(
         createdAt: new Date(),
         updatedAt: new Date(),
         userId: user.id,
-        type: "file",
+        type:
+            getFileCategory(originalFileName?.split(".").pop()) ||
+            inferredTypeFromHeaders ||
+            "file",
         status: "pending",
         isRequestFromDevEnvironment:
             process.env.NODE_ENV === "development" ? 1 : 0,
@@ -479,12 +573,26 @@ async function saveFile(
             .where(
                 or(
                     and(
-                        eq(itemTable.type, "file"),
+                        eq(
+                            itemTable.type,
+                            getFileCategory(
+                                originalFileName?.split(".").pop()
+                            ) ||
+                                inferredTypeFromHeaders ||
+                                "file"
+                        ),
                         eq(itemTable.content, content),
                         eq(itemTable.userId, user.id)
                     ),
                     and(
-                        eq(itemTable.type, "file"),
+                        eq(
+                            itemTable.type,
+                            getFileCategory(
+                                originalFileName?.split(".").pop()
+                            ) ||
+                                inferredTypeFromHeaders ||
+                                "file"
+                        ),
                         eq(itemTable.url, content),
                         eq(itemTable.userId, user.id)
                     )
@@ -592,7 +700,16 @@ export async function savePrimaryInformation(
                 return await saveURLInfo(content, user, response);
 
             case "file":
-                return await saveFile(content, user);
+            case "image":
+            case "video":
+            case "document":
+                return await saveFile(
+                    content,
+                    user,
+                    fileID,
+                    originalFileName,
+                    inferredTypeFromHeaders
+                );
         }
     }
 
@@ -626,6 +743,7 @@ async function processFile(
                         originalURL: null,
                         userID: user.id,
                         originalFileName,
+                        fileID,
                     }),
                     headers: {
                         "Content-Type": "application/json",
@@ -689,13 +807,18 @@ export async function processItem(
         return null;
     }
 
-    if (item.type === "file" && item.url) {
-        return await processFile(item, user, fileID, originalFileName);
-    } else if (item.type === "text") {
+    if (item.type === "text") {
         return await processTextItem(item, user);
+    } else if (
+        (item.type === "file" ||
+            item.type === "image" ||
+            item.type === "video" ||
+            item.type === "document") &&
+        item.url
+    ) {
+        return await processFile(item, user, fileID, originalFileName);
     }
 }
-
 export async function deleteItem(itemId: string, user: User) {
     return await db
         .delete(itemTable)
