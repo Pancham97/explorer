@@ -333,6 +333,7 @@ export default function Index() {
                 formData.set("fileID", id);
                 formData.set("intent", "paste");
                 formData.set("originalFileName", originalFileName);
+                formData.set("fileSize", file.size.toString());
                 pasteFetcher.submit(formData, {
                     method: "post",
                 });
@@ -472,6 +473,7 @@ export default function Index() {
                     <input type="hidden" name="pastedContent" />
                     <input type="hidden" name="fileID" />
                     <input type="hidden" name="originalFileName" />
+                    <input type="hidden" name="fileSize" />
                     <input type="hidden" name="intent" value="paste" />
                 </pasteFetcher.Form>
             </div>
@@ -526,12 +528,14 @@ export async function action({ request }: ActionFunctionArgs) {
             const pastedContent = formData.get("pastedContent");
             const fileID = formData.get("fileID");
             const originalFileName = formData.get("originalFileName");
+            const fileSize = formData.get("fileSize");
             if (pastedContent) {
                 return saveItem(
                     pastedContent.toString(),
                     user,
                     fileID?.toString(),
-                    originalFileName?.toString()
+                    originalFileName?.toString(),
+                    fileSize?.toString()
                 );
             }
 
