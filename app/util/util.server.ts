@@ -545,7 +545,8 @@ async function saveFile(
     user: User,
     fileID?: string,
     originalFileName?: string,
-    inferredTypeFromHeaders?: string
+    inferredTypeFromHeaders?: string,
+    fileSize?: string
 ) {
     const id = fileID ?? ulid();
 
@@ -561,6 +562,7 @@ async function saveFile(
             getFileCategory(originalFileName?.split(".").pop()) ||
             inferredTypeFromHeaders ||
             "file",
+        metadata: { fileSize },
         status: "pending",
         isRequestFromDevEnvironment:
             process.env.NODE_ENV === "development" ? 1 : 0,
@@ -668,7 +670,8 @@ export async function savePrimaryInformation(
     content: string,
     user: User,
     fileID?: string,
-    originalFileName?: string
+    originalFileName?: string,
+    fileSize?: string
 ): Promise<{
     id: string;
 }> {
@@ -681,7 +684,14 @@ export async function savePrimaryInformation(
 
     if (fileID) {
         console.log("saving file");
-        return await saveFile(content, user, fileID, originalFileName);
+        return await saveFile(
+            content,
+            user,
+            fileID,
+            originalFileName,
+            undefined,
+            fileSize
+        );
     }
 
     const response = await fetch(content, {
@@ -708,7 +718,8 @@ export async function savePrimaryInformation(
                     user,
                     fileID,
                     originalFileName,
-                    inferredTypeFromHeaders
+                    inferredTypeFromHeaders,
+                    fileSize
                 );
         }
     }
@@ -849,7 +860,8 @@ export const saveItem = async (
     textContent: string,
     user: User,
     fileID?: string,
-    originalFileName?: string
+    originalFileName?: string,
+    fileSize?: string
 ) => {
     try {
         console.log("saving primary information");
@@ -857,7 +869,8 @@ export const saveItem = async (
             textContent,
             user,
             fileID,
-            originalFileName
+            originalFileName,
+            fileSize
         );
         console.log("saved primary information", savedItemInfo);
 

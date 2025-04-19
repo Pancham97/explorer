@@ -67,11 +67,16 @@ type Tag = {
     keywords?: string[];
     text?: string[];
     primaryColorHexCode?: string;
+    imageDescription?: string;
 };
 
 const FileCard = ({ data, onDelete }: ContentCardProps) => {
     const { metadata, id, title, tags, url, fileMetadata } = data;
     const [, setIsLoaded] = React.useState(!metadata?.image);
+    const [copiedColor, setCopiedColor] = React.useState<string | null>(null);
+
+    const { colors, colorCodes, keywords, text, imageDescription } =
+        tags as Tag;
 
     const cardContent = (
         <CardContent className="p-0 relative">
@@ -97,33 +102,58 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
 
     const cardLabel = title;
 
-    let colors;
-    if (tags) {
-        colors = (tags as Maybe<Tag>)?.colorCodes?.map((color) => (
+    let colorSwatchesContent;
+    if (colorCodes) {
+        colorSwatchesContent = colorCodes?.map((color) => (
             <TooltipProvider key={color}>
                 <Tooltip
                     delayDuration={100}
-                    defaultOpen={false}
+                    // defaultOpen={copiedColor === color}
                     disableHoverableContent
                 >
                     <TooltipTrigger
-                        className="w-6 h-6 mx-[-0.25rem] z-50 transition-all duration-200 ease-in-out group-hover:mx-1 rounded-full hover:scale-150 cursor-pointer border-[0.5px] border-black dark:border-white"
+                        className="w-6 h-6 mx-[-0.25rem] z-50 transition-all duration-200 ease-in-out group-hover:mx-1 rounded-full hover:scale-150 cursor-pointer border-[0.5px]"
                         style={{ backgroundColor: color }}
-                        onClick={() => copyToClipboard(color)}
-                    ></TooltipTrigger>
-                    <TooltipContent>{color}</TooltipContent>
+                        onClick={(e) => {
+                            // Prevent Dialog trigger if needed, though usually TooltipTrigger stops propagation
+                            e.stopPropagation();
+                            copyToClipboard(color);
+                            // Set the *specific* copied color
+                            setCopiedColor(color);
+                            // Reset after a delay
+                            setTimeout(() => {
+                                setCopiedColor(null);
+                            }, 1000); // 1 second delay
+                        }}
+                    />
+
+                    <TooltipContent>
+                        {copiedColor === color ? "Copied!" : color}
+                    </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
         ));
     }
 
+    let imageDescriptionContent;
+    if (imageDescription) {
+        imageDescriptionContent = (
+            <div className="flex flex-col gap-2 my-6">
+                <p className="text-lg font-bold text-left">Image Description</p>
+                <div className="flex flex-wrap gap-2">
+                    <p key={imageDescription}>{imageDescription}</p>
+                </div>
+            </div>
+        );
+    }
+
     let textInference;
-    if ((tags as Maybe<Tag>)?.text && (tags as Maybe<Tag>)?.text?.length) {
+    if (text && text?.length) {
         textInference = (
             <div className="flex flex-col gap-2 my-6">
                 <p className="text-lg font-bold text-left">Text</p>
                 <div className="flex flex-wrap gap-2">
-                    {(tags as Maybe<Tag>)?.text?.map((text) => (
+                    {text?.map((text) => (
                         <Badge variant="secondary" key={text}>
                             {text}
                         </Badge>
@@ -133,16 +163,13 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
         );
     }
 
-    let keywords;
-    if (
-        (tags as Maybe<Tag>)?.keywords &&
-        (tags as Maybe<Tag>)?.keywords?.length
-    ) {
-        keywords = (
+    let keywordsContent;
+    if (keywords && keywords?.length) {
+        keywordsContent = (
             <div className="flex flex-col gap-2">
                 <p className="text-lg font-bold text-left">Keywords</p>
                 <div className="flex flex-wrap gap-2">
-                    {(tags as Maybe<Tag>)?.keywords?.map((keyword) => (
+                    {keywords?.map((keyword) => (
                         <Badge variant="secondary" key={keyword}>
                             {keyword}
                         </Badge>
@@ -158,11 +185,7 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
                 <div
                     className={"w-full h-full flex-[3]"}
                     style={{
-                        backgroundColor: (
-                            tags as Maybe<Tag>
-                        )?.primaryColorHexCode
-                            ?.toString()
-                            .toLowerCase(),
+                        backgroundColor: colorCodes?.[0],
                     }}
                 >
                     <img
@@ -177,12 +200,13 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
                         loading="lazy"
                     />
                     <div className="flex group transition-all m-4">
-                        {colors}
+                        {colorSwatchesContent}
                     </div>
                 </div>
                 <div className="w-[0.5px] h-full bg-gray-300" />
                 <div className="flex-[1] px-4">
-                    {keywords}
+                    {imageDescriptionContent}
+                    {keywordsContent}
                     {textInference}
                 </div>
             </div>
