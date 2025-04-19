@@ -32,7 +32,7 @@ export const item = singlestoreTable(
         ]).notNull(),
         tags: json(),
         title: varchar({ length: 360 }),
-        type: singlestoreEnum(["file", "url", "text"]).notNull(),
+        type: varchar({ length: 255 }).notNull(),
         updatedAt: timestamp("updated_at", { mode: "date" }).notNull(),
         url: varchar({ length: 4096 }),
         userId: varchar("user_id", { length: 255 }).notNull(),

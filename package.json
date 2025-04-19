@@ -37,7 +37,7 @@
         "clsx": "^2.1.1",
         "cross-env": "^7.0.3",
         "dotenv": "^16.4.7",
-        "drizzle-orm": "^0.38.2",
+        "drizzle-orm": "^0.40.0",
         "html-escaper": "^3.0.3",
         "isbot": "^4.1.0",
         "jwt-decode": "^4.0.0",
