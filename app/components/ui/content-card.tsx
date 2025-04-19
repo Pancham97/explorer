@@ -132,6 +132,26 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
             </div>
         );
     }
+
+    let keywords;
+    if (
+        (tags as Maybe<Tag>)?.keywords &&
+        (tags as Maybe<Tag>)?.keywords?.length
+    ) {
+        keywords = (
+            <div className="">
+                <p className="text-lg font-bold mb-2">Keywords</p>
+                <div className="flex flex-wrap gap-2">
+                    {(tags as Maybe<Tag>)?.keywords?.map((keyword) => (
+                        <Badge variant="secondary" key={keyword}>
+                            {keyword}
+                        </Badge>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     const dialogDescription = (
         <div className="flex flex-col gap-2 flex-grow">
             <div className="flex gap-2 h-full w-full">
@@ -159,16 +179,7 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
                 </div>
                 <div className="w-[0.5px] h-full bg-gray-300" />
                 <div className="flex-[1] px-4">
-                    <div className="">
-                        <p className="text-lg font-bold mb-2">Keywords</p>
-                        <div className="flex flex-wrap gap-2">
-                            {(tags as Maybe<Tag>)?.keywords?.map((keyword) => (
-                                <Badge variant="secondary" key={keyword}>
-                                    {keyword}
-                                </Badge>
-                            ))}
-                        </div>
-                    </div>
+                    {keywords}
                     {textInference}
                 </div>
             </div>
