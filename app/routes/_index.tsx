@@ -54,6 +54,61 @@ type Item = Awaited<ReturnType<typeof itemsLoader>>[number] & {
     };
 };
 
+const getFileCategory = (fileExtension: string | undefined) => {
+    if (!fileExtension) {
+        return "file";
+    }
+
+    switch (fileExtension) {
+        case "jpg":
+        case "jpeg":
+        case "png":
+        case "heic":
+        case "heif":
+        case "gif":
+        case "webp":
+            return "image";
+
+        case "mp4":
+        case "mov":
+        case "mkv":
+        case "avi":
+        case "webm":
+            return "video";
+
+        case "pdf":
+        case "doc":
+        case "docx":
+        case "xls":
+        case "xlsx":
+        case "ppt":
+        case "pptx":
+        case "txt":
+        case "md":
+        case "csv":
+        case "json":
+        case "xml":
+        case "yaml":
+        case "yml":
+        case "toml":
+        case "ini":
+        case "conf":
+        case "cfg":
+        case "config":
+        case "log":
+        case "sh":
+        case "bash":
+        case "zsh":
+        case "fish":
+        case "bat":
+        case "ps1":
+            return "document";
+
+        default:
+            return "file";
+    }
+};
+
 export const meta: MetaFunction = () => {
     return [
         { title: "Sunchay" },
@@ -87,7 +142,7 @@ const FloatingButton = ({
     uploading: boolean;
 }) => (
     <Button
-        className="fixed bottom-4 right-4 z-[10000]"
+        className="fixed bottom-4 right-4 z-40"
         onClick={onClick}
         disabled={uploading}
     >
@@ -192,12 +247,19 @@ export default function Index() {
                     "Your file has been uploaded and is ready to view.",
                 variant: "default",
             });
+
+            const fileExtension = pasteFetcher.data.itemId
+                ? pasteFetcher.data.itemId.split(".").pop()
+                : "";
+
+            const categoryOfFile = getFileCategory(fileExtension);
+
             // Optionally add the file URL to the items list
             if (pasteFetcher.data.itemId) {
                 const newItem: ItemWithMetadata = {
                     id: pasteFetcher.data.itemId,
                     content: pasteFetcher.data.content,
-                    type: "file",
+                    type: categoryOfFile,
                     title: "Uploaded File",
                     description: "A file you uploaded",
                     createdAt: new Date(),
