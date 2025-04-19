@@ -120,8 +120,8 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
     let textInference;
     if ((tags as Maybe<Tag>)?.text && (tags as Maybe<Tag>)?.text?.length) {
         textInference = (
-            <div className="my-6">
-                <p className="text-lg font-bold mb-2">Text</p>
+            <div className="flex flex-col gap-2 my-6">
+                <p className="text-lg font-bold text-left">Text</p>
                 <div className="flex flex-wrap gap-2">
                     {(tags as Maybe<Tag>)?.text?.map((text) => (
                         <Badge variant="secondary" key={text}>
@@ -132,9 +132,29 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
             </div>
         );
     }
+
+    let keywords;
+    if (
+        (tags as Maybe<Tag>)?.keywords &&
+        (tags as Maybe<Tag>)?.keywords?.length
+    ) {
+        keywords = (
+            <div className="flex flex-col gap-2">
+                <p className="text-lg font-bold text-left">Keywords</p>
+                <div className="flex flex-wrap gap-2">
+                    {(tags as Maybe<Tag>)?.keywords?.map((keyword) => (
+                        <Badge variant="secondary" key={keyword}>
+                            {keyword}
+                        </Badge>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     const dialogDescription = (
         <div className="flex flex-col gap-2 flex-grow">
-            <div className="flex gap-2 h-full w-full">
+            <div className="flex flex-col md:flex-row gap-2 h-full w-full">
                 <div
                     className={"w-full h-full flex-[3]"}
                     style={{
@@ -156,23 +176,16 @@ const FileCard = ({ data, onDelete }: ContentCardProps) => {
                         onLoad={() => setIsLoaded(true)}
                         loading="lazy"
                     />
+                    <div className="flex group transition-all m-4">
+                        {colors}
+                    </div>
                 </div>
                 <div className="w-[0.5px] h-full bg-gray-300" />
                 <div className="flex-[1] px-4">
-                    <div className="">
-                        <p className="text-lg font-bold mb-2">Keywords</p>
-                        <div className="flex flex-wrap gap-2">
-                            {(tags as Maybe<Tag>)?.keywords?.map((keyword) => (
-                                <Badge variant="secondary" key={keyword}>
-                                    {keyword}
-                                </Badge>
-                            ))}
-                        </div>
-                    </div>
+                    {keywords}
                     {textInference}
                 </div>
             </div>
-            <div className="flex group transition-all">{colors}</div>
         </div>
     );
 
